@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/Auth.php';
 
 class Chassi
 {
@@ -54,8 +55,17 @@ class Chassi
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    private function requireUser()
+    {
+        if (!Auth::currentUser()) {
+            return ['status' => 403, 'error' => 'Доступ запрещён — только сотрудники'];
+        }
+        return null;
+    }
+
     function chassiPost()
     {
+        if ($err = $this->requireUser()) return $err;
         $sql = 'INSERT INTO chassi (chassi_nummer, tuf, esp)
                 VALUES (:chassi_nummer, :tuf, :esp)';
         $stmt = $this->db->prepare($sql);
@@ -80,6 +90,7 @@ class Chassi
 
     function chassiPut()
     {
+        if ($err = $this->requireUser()) return $err;
         $sql = 'UPDATE chassi
                     SET chassi_nummer = :chassi_nummer,   
                        tuf = :tuf, 
@@ -98,7 +109,8 @@ class Chassi
 
     function deleteChassi($route)
     {
-        $id = $route[2] ?? null;
+        if ($err = $this->requireUser()) return $err;
+        $id = $route[1] ?? $this->id_chassi ?? null;
         
         if (!$id) {
             return ['status' => 400, 'error' => 'ID_chassi required'];

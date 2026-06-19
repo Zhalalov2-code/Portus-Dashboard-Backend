@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/Auth.php';
 
 class MessageChassi
 {
@@ -66,8 +67,16 @@ class MessageChassi
         return ['status' => 200, 'data' => $message_chassi];
     }
 
+    private function isSenderAllowed()
+    {
+        return Auth::currentUser() !== null || Auth::currentFahrer() !== null;
+    }
+
     function postMessageChassi()
     {
+        if (!$this->isSenderAllowed()) {
+            return ['status' => 403, 'error' => 'Доступ запрещён'];
+        }
         $sql = "INSERT INTO message_chassi (id_chassi, id_message, type_sender, text, action_type, latitude, longitude, address) VALUES (:id_chassi, :id_message, :type_sender, :text, :action_type, :latitude, :longitude, :address)";
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':id_chassi', $this->id_chassi);
@@ -85,6 +94,9 @@ class MessageChassi
 
     function deleteMessageChassi()
     {
+        if (!Auth::currentUser()) {
+            return ['status' => 403, 'error' => 'Доступ запрещён — только сотрудники'];
+        }
         if (empty($this->id_message)) {
             return ['status' => 400, 'message' => 'id_message обязателен'];
         }
@@ -155,8 +167,8 @@ class MessageChassi
         if (isset($data['longitude'])) {
             $this->longitude = $data['longitude'];
         }
-        if (isset($data['adress'])) {
-            $this->adress = $data['adress'];
+        if (isset($data['address'])) {
+            $this->address = $data['address'];
         }
     }
 }

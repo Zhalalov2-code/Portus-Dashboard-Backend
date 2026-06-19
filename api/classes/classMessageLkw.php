@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/Auth.php';
 
 class MessageLkw
 {
@@ -52,8 +53,16 @@ class MessageLkw
         return ['status' => 200, 'data' => $message_lkw];
     }
 
+    private function isSenderAllowed()
+    {
+        return Auth::currentUser() !== null || Auth::currentFahrer() !== null;
+    }
+
     function postMessageLkw()
     {
+        if (!$this->isSenderAllowed()) {
+            return ['status' => 403, 'error' => 'Доступ запрещён'];
+        }
         $sql = "INSERT INTO message_lkw (id_lkw, id_message, type_sender, text) VALUES (:id_lkw, :id_message, :type_sender, :text)";
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':id_lkw', $this->id_lkw);
@@ -67,6 +76,9 @@ class MessageLkw
 
     function deleteMessageLkw()
     {
+        if (!Auth::currentUser()) {
+            return ['status' => 403, 'error' => 'Доступ запрещён — только сотрудники'];
+        }
         if (empty($this->id_message)) {
             return ['status' => 400, 'message' => 'id_message обязателен'];
         }

@@ -78,41 +78,49 @@ function postFiles()
             $uploaded_file = $_FILES['file_name'];
             $target_dir = __DIR__ . "/../uploads/lkw/";        // Создаем директорию если не существует
         if (!is_dir($target_dir)) {
-            mkdir($target_dir, 0777, true);
+            mkdir($target_dir, 0755, true);
         }
 
-        // Генерируем уникальное имя файла для избежания коллизий
         $original_filename = basename($uploaded_file['name']);
         $extension = strtolower(pathinfo($original_filename, PATHINFO_EXTENSION));
-        $filename = uniqid('file_', true) . '.' . $extension;
-        $target_file = $target_dir . $filename;
-
-        // Проверка на изображение (можно убрать если нужны любые файлы)
-        $check = getimagesize($uploaded_file["tmp_name"]);
-        if ($check === false) {
-            return ['status' => 400, 'message' => 'Файл не является изображением'];
-        }
-
-        if ($uploaded_file["size"] > 5000000) { // 5MB
-            return ['status' => 400, 'message' => 'Файл слишком большой'];
-        }
 
         if (!in_array($extension, ['jpg', 'png', 'jpeg', 'gif'])) {
             return ['status' => 400, 'message' => 'Только JPG, JPEG, PNG & GIF файлы разрешены'];
         }
 
+        if ($uploaded_file["size"] > 5000000) {
+            return ['status' => 400, 'message' => 'Файл слишком большой (максимум 5 МБ)'];
+        }
+
+        $check = getimagesize($uploaded_file["tmp_name"]);
+        if ($check === false) {
+            return ['status' => 400, 'message' => 'Файл не является изображением'];
+        }
+
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = finfo_file($finfo, $uploaded_file["tmp_name"]);
+            finfo_close($finfo);
+            if (!in_array($mime, ['image/jpeg', 'image/png', 'image/gif'])) {
+                return ['status' => 400, 'message' => 'Недопустимый тип файла'];
+            }
+        }
+
+        $filename = uniqid('file_', true) . '.' . $extension;
+        $target_file = $target_dir . $filename;
+
         if (!move_uploaded_file($uploaded_file["tmp_name"], $target_file)) {
             return ['status' => 500, 'message' => 'Ошибка при загрузке файла'];
         }
 
-        $sql = "INSERT INTO files_lkw (id_message, file_name, created_ad) VALUES (:id_message, :file_name, CURRENT_TIMESTAMP)";
+        $sql = "INSERT INTO files_lkw (id_message, file_name, created_at) VALUES (:id_message, :file_name, CURRENT_TIMESTAMP)";
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':id_message', (int)$this->id_message, PDO::PARAM_INT);
         $stmt->bindValue(':file_name', $filename, PDO::PARAM_STR);
-        $result = $stmt->execute();
 
-        if (!$result) {
-            return ['status' => 500, 'message' => 'Ошибка SQL: ' . print_r($stmt->errorInfo(), true)];
+        if (!$stmt->execute()) {
+            error_log('files_lkw INSERT failed: ' . print_r($stmt->errorInfo(), true));
+            return ['status' => 500, 'message' => 'Ошибка при сохранении файла'];
         }
 
         $inserted_id = $this->db->lastInsertId();
@@ -124,8 +132,10 @@ function postFiles()
             'filename' => $filename
         ];
     } catch (PDOException $e) {
-        return ['status' => 500, 'message' => 'Ошибка при добавлении файла: ' . $e->getMessage()];
+        error_log('files_lkw PDO error: ' . $e->getMessage());
+        return ['status' => 500, 'message' => 'Ошибка при добавлении файла'];
     } catch (Exception $e) {
+        error_log('files_lkw error: ' . $e->getMessage());
         return ['status' => 500, 'message' => 'Внутренняя ошибка сервера'];
     }
 }
@@ -155,7 +165,7 @@ function postFiles()
             $stmt->execute();
 
             // Удаляем физический файл с диска
-            $file_path = __DIR__ . "/uploads_lkw/" . $file_data['file_name'];
+            $file_path = __DIR__ . "/../uploads/lkw/" . $file_data['file_name'];
             if (file_exists($file_path)) {
                 unlink($file_path);
             }
