@@ -1,0 +1,3 @@
+*/15 * * * * www-data php /var/www/html/cron/check_deadlines.php >> /var/www/html/logs/cron.log 2>&1
+0 2 * * * www-data php /var/www/html/cron/cleanup_tokens.php >> /var/www/html/logs/cron.log 2>&1
+0 3 * * * www-data php /var/www/html/cron/cleanup_old_vacations.php >> /var/www/html/logs/cron.log 2>&1

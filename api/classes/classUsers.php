@@ -10,12 +10,11 @@ class Users
     private $name;
     private $lastname;
     private $role;
-    private $agree;
     private $department_id;
     private $vacation_days_per_year = 28;
     private $db;
 
-    function __construct($id = null, $email = '', $password = '', $name = '', $lastname = '', $role = '', $agree = false, $department_id = null)
+    function __construct($id = null, $email = '', $password = '', $name = '', $lastname = '', $role = '', $department_id = null)
     {
         $this->db = DB::getInstance();
         $this->id = $id;
@@ -24,7 +23,6 @@ class Users
         $this->name = $name;
         $this->lastname = $lastname;
         $this->role = $role;
-        $this->agree = $agree;
         $this->department_id = $department_id;
     }
 
@@ -151,15 +149,14 @@ class Users
             return ['status' => 400, 'error' => 'Пароль обязателен'];
         }
 
-        $sql = 'INSERT INTO users (email, password, name, lastname, role, agree, department_id, vacation_days_per_year)
-                VALUES (:email, :password, :name, :lastname, :role, :agree, :department_id, :vacation_days_per_year)';
+        $sql = 'INSERT INTO users (email, password, name, lastname, role, department_id, vacation_days_per_year)
+                VALUES (:email, :password, :name, :lastname, :role, :department_id, :vacation_days_per_year)';
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':email', $this->email);
         $stmt->bindValue(':password', password_hash($this->password, PASSWORD_DEFAULT));
         $stmt->bindValue(':name', $this->name);
         $stmt->bindValue(':lastname', $this->lastname);
         $stmt->bindValue(':role', $this->role);
-        $stmt->bindValue(':agree', $this->agree);
         $stmt->bindValue(':department_id', $this->department_id ?: null);
         $stmt->bindValue(':vacation_days_per_year', (int) $this->vacation_days_per_year);
         if ($stmt->execute()) {
@@ -173,7 +170,6 @@ class Users
                     'name' => $this->name,
                     'lastname' => $this->lastname,
                     'role' => $this->role,
-                    'agree' => $this->agree,
                     'department_id' => $this->department_id,
                     'vacation_days_per_year' => (int) $this->vacation_days_per_year
                 ]
@@ -242,7 +238,8 @@ class Users
             return ['status' => 403, 'error' => 'Доступ запрещён'];
         }
         $id = $route[1] ?? $this->id ?? null;
-        if (!$id) return ['status' => 400, 'error' => 'ID required'];
+        if (!$id)
+            return ['status' => 400, 'error' => 'ID required'];
 
         $sql = 'DELETE FROM users WHERE id = :id';
         $stmt = $this->db->prepare($sql);
@@ -259,7 +256,7 @@ class Users
         $raw = file_get_contents('php://input');
         $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
 
-        if(stripos($contentType, 'application/json') !== false) {
+        if (stripos($contentType, 'application/json') !== false) {
             $data = json_decode($raw, true);
             return is_array($data) ? $data : [];
         }
@@ -286,9 +283,6 @@ class Users
         }
         if (isset($data['role'])) {
             $this->role = strtolower(trim($data['role']));
-        }
-        if (isset($data['agree'])) {
-            $this->agree = $data['agree'];
         }
         if (isset($data['department_id'])) {
             $this->department_id = $data['department_id'];

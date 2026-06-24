@@ -1,0 +1,83 @@
+version: '3.9'
+
+services:
+  app:
+    build: .
+    container_name: portusapp_web
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8888}:80"
+    volumes:
+      - ./.env:/var/www/html/.env:ro
+      - ./api:/var/www/html/api
+      - uploads:/var/www/html/api/uploads
+      - logs:/var/www/html/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - portusapp
+      - proxy
+
+  cron:
+    build: .
+    container_name: portusapp_cron
+    restart: unless-stopped
+    command: ["cron", "-f"]
+    volumes:
+      - ./.env:/var/www/html/.env:ro
+      - uploads:/var/www/html/api/uploads
+      - logs:/var/www/html/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - portusapp
+
+  db:
+    image: mysql:8.0
+    container_name: portusapp_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASS}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - portusapp
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: portusapp_phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8889:80"
+    environment:
+      PMA_HOST: db
+      PMA_USER: ${DB_USER}
+      PMA_PASSWORD: ${DB_PASS}
+    depends_on:
+      - db
+    networks:
+      - portusapp
+      - proxy
+
+volumes:
+  uploads:
+  logs:
+  db_data:
+
+networks:
+  portusapp:
+    driver: bridge
+  proxy:
+    external: true
+    name: school_proxy_network

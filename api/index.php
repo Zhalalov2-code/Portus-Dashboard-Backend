@@ -6,7 +6,7 @@ require_once __DIR__ . '/classes/Auth.php';
 // --- CORS ---
 // В проде ALLOWED_ORIGIN должен быть точным адресом фронтенда, а не "*",
 // иначе API открыт для запросов с любого сайта.
-$allowedOrigin = getenv('ALLOWED_ORIGIN') ?: 'http://localhost:3000';
+$allowedOrigin = getenv('ALLOWED_ORIGIN') ?: 'https://portus-management.netlify.app';
 header('Access-Control-Allow-Origin: ' . $allowedOrigin);
 header('Vary: Origin');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
@@ -55,7 +55,7 @@ if (($route[0] ?? null) === 'fahrer' && ($route[1] ?? null) === null && $method 
     $s = $db->prepare("SELECT COUNT(*) FROM fahrer_reg_attempts WHERE ip = :ip AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)");
     $s->bindValue(':ip', $ip);
     $s->execute();
-    if ((int)$s->fetchColumn() >= 5) {
+    if ((int) $s->fetchColumn() >= 5) {
         http_response_code(429);
         echo json_encode(['status' => 429, 'error' => 'Zu viele Registrierungsversuche. Bitte warten Sie eine Stunde.']);
         exit;
@@ -105,7 +105,6 @@ if (count($route) <= 3) {
                     $req['name'] ?? '',
                     $req['lastname'] ?? '',
                     $req['role'] ?? '',
-                    $req['agree'] ?? false,
                     $req['department_id'] ?? null
                 );
             }
@@ -160,7 +159,6 @@ if (count($route) <= 3) {
                 $req['tuf'] ?? null,
                 $req['esp'] ?? null,
                 $req['lkw_nummer'] ?? '',
-                $req['status'] ?? 'active'
             );
             $arr_json = $lkw->verifyMethod($method, $route);
             break;

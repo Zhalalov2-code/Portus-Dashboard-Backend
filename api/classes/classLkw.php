@@ -9,16 +9,14 @@ class Lkw
     private $tuf;
     private $esp;
     private $lkw_nummer;
-    private $status;
 
-    public function __construct($id_lkw = null, $tuf = null, $esp = null, $lkw_nummer = '', $status = 'active')
+    public function __construct($id_lkw = null, $tuf = null, $esp = null, $lkw_nummer = '')
     {
         $this->db = DB::getInstance();
         $this->id_lkw = $id_lkw;
         $this->tuf = $tuf;
         $this->esp = $esp;
         $this->lkw_nummer = $lkw_nummer;
-        $this->status = $status ?: 'active';
     }
 
     function verifyMethod($method, $route)
@@ -67,14 +65,14 @@ class Lkw
 
     function postLkw()
     {
-        if ($err = $this->requireUser()) return $err;
-        $sql = 'INSERT INTO lkw ( tuf, esp, lkw_nummer, status)
-                VALUES ( :tuf, :esp, :lkw_nummer, :status)';
+        if ($err = $this->requireUser())
+            return $err;
+        $sql = 'INSERT INTO lkw ( tuf, esp, lkw_nummer)
+                VALUES ( :tuf, :esp, :lkw_nummer)';
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':tuf', $this->tuf);
         $stmt->bindValue(':esp', $this->esp);
         $stmt->bindValue(':lkw_nummer', $this->lkw_nummer);
-        $stmt->bindValue(':status', $this->status);
         if ($stmt->execute()) {
             http_response_code(201);
             return [
@@ -85,7 +83,6 @@ class Lkw
                     'tuf' => $this->tuf,
                     'esp' => $this->esp,
                     'lkw_nummer' => $this->lkw_nummer,
-                    'status' => $this->status,
                 ]
             ];
         }
@@ -94,19 +91,18 @@ class Lkw
 
     function putlkw()
     {
-        if ($err = $this->requireUser()) return $err;
+        if ($err = $this->requireUser())
+            return $err;
         $sql = 'UPDATE lkw
                     SET lkw_nummer = :lkw_nummer,
                        tuf = :tuf,
-                       esp = :esp,
-                       status = :status
+                       esp = :esp
                  WHERE id_lkw = :id_lkw';
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':id_lkw', $this->id_lkw);
         $stmt->bindValue(':lkw_nummer', $this->lkw_nummer);
         $stmt->bindValue(':tuf', $this->tuf);
         $stmt->bindValue(':esp', $this->esp);
-        $stmt->bindValue(':status', $this->status);
         if ($stmt->execute()) {
             return ['status' => 200, 'message' => 'LKW успешно обновлен'];
         }
@@ -115,7 +111,8 @@ class Lkw
 
     function deleteLkw()
     {
-        if ($err = $this->requireUser()) return $err;
+        if ($err = $this->requireUser())
+            return $err;
         $sql = 'DELETE FROM lkw WHERE id_lkw = :id_lkw';
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':id_lkw', $this->id_lkw);
@@ -151,9 +148,6 @@ class Lkw
         }
         if (isset($data['lkw_nummer'])) {
             $this->lkw_nummer = $data['lkw_nummer'];
-        }
-        if (isset($data['status'])) {
-            $this->status = $data['status'];
         }
     }
 }
