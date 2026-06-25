@@ -10,6 +10,26 @@ class Chassi
     private $esp;
     private $db;
 
+    // Поля с формы (заполняются в hydrateForm). Используются для создания
+    // и для ЧАСТИЧНОГО обновления — обновляются только пришедшие колонки,
+    // чтобы обычное редактирование не затирало инфо-поля (оси/ADR), и наоборот.
+    private $fields = [];
+
+    // Белый список колонок, которые можно писать через API.
+    private const ALLOWED = [
+        'chassi_nummer',
+        'tuf',
+        'esp',
+        'adr',
+        'a_schild',
+        'achse1_links',
+        'achse1_rechts',
+        'achse2_links',
+        'achse2_rechts',
+        'achse3_links',
+        'achse3_rechts',
+    ];
+
     function __construct($id_chassi = null, $chassi_nummer = '', $tuf = '', $esp = '')
     {
         $this->db = DB::getInstance();
@@ -25,9 +45,8 @@ class Chassi
         switch ($method) {
             case 'GET':
                 return $this->chassiGet();
-
             case 'POST':
-                if( $res1 === null) {
+                if ($res1 === null) {
                     $data = $this->getReqData();
                     $this->hydrateForm($data);
                     return $this->chassiPost();
@@ -37,13 +56,10 @@ class Chassi
                 $data = $this->getReqData();
                 $this->hydrateForm($data);
                 return $this->chassiPut();
-                break;
             case 'DELETE':
                 return $this->deleteChassi($route);
-                break;
             default:
                 return ['status' => 405];
-                break;
         }
     }
 
@@ -52,7 +68,13 @@ class Chassi
         $sql = 'SELECT * FROM chassi';
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Булевы поля приводим к int, чтобы фронт получал 0/1, а не "0"/"1".
+        foreach ($result as &$row) {
+            $row['adr'] = (int) ($row['adr'] ?? 0);
+            $row['a_schild'] = (int) ($row['a_schild'] ?? 0);
+        }
+        return $result;
     }
 
     private function requireUser()
@@ -65,24 +87,40 @@ class Chassi
 
     function chassiPost()
     {
-        if ($err = $this->requireUser()) return $err;
-        $sql = 'INSERT INTO chassi (chassi_nummer, tuf, esp)
-                VALUES (:chassi_nummer, :tuf, :esp)';
+        if ($err = $this->requireUser())
+            return $err;
+
+        // Значения по умолчанию для полей, которые не пришли с формы.
+        $defaults = [
+            'chassi_nummer' => '',
+            'tuf' => null,
+            'esp' => null,
+            'adr' => 0,
+            'a_schild' => 0,
+            'achse1_links' => 'OK',
+            'achse1_rechts' => 'OK',
+            'achse2_links' => 'OK',
+            'achse2_rechts' => 'OK',
+            'achse3_links' => 'OK',
+            'achse3_rechts' => 'OK',
+        ];
+        $vals = array_merge($defaults, $this->fields);
+        $cols = array_keys($defaults);
+
+        $colList = implode(', ', $cols);
+        $placeholders = implode(', ', array_map(fn($c) => ':' . $c, $cols));
+        $sql = "INSERT INTO chassi ($colList) VALUES ($placeholders)";
         $stmt = $this->db->prepare($sql);
-        $stmt->bindValue(':chassi_nummer', $this->chassi_nummer);
-        $stmt->bindValue(':tuf', $this->tuf);
-        $stmt->bindValue(':esp', $this->esp);
+        foreach ($cols as $c) {
+            $stmt->bindValue(':' . $c, $vals[$c]);
+        }
+
         if ($stmt->execute()) {
-            $id_chassi = $this->db->lastInsertId();
+            http_response_code(201);
             return [
                 'status' => 201,
                 'message' => 'chassi добавлен',
-                'chassi' => [
-                    'id_chassi' => $id_chassi,
-                    'chassi_nummer' => $this->chassi_nummer,
-                    'tuf' => $this->tuf,
-                    'esp' => $this->esp,
-                ]
+                'chassi' => array_merge(['id_chassi' => $this->db->lastInsertId()], $vals),
             ];
         }
         return ['status' => 400, 'error' => 'Ошибка регистрации chassi'];
@@ -90,17 +128,28 @@ class Chassi
 
     function chassiPut()
     {
-        if ($err = $this->requireUser()) return $err;
-        $sql = 'UPDATE chassi
-                    SET chassi_nummer = :chassi_nummer,   
-                       tuf = :tuf, 
-                       esp = :esp
-                 WHERE id_chassi = :id_chassi';
+        if ($err = $this->requireUser())
+            return $err;
+
+        if (!$this->id_chassi) {
+            return ['status' => 400, 'error' => 'id_chassi обязателен'];
+        }
+        if (empty($this->fields)) {
+            return ['status' => 400, 'error' => 'Нет полей для обновления'];
+        }
+
+        // Частичный UPDATE: только переданные колонки (имена — из белого списка).
+        $set = [];
+        foreach ($this->fields as $col => $_val) {
+            $set[] = "$col = :$col";
+        }
+        $sql = 'UPDATE chassi SET ' . implode(', ', $set) . ' WHERE id_chassi = :id_chassi';
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':id_chassi', $this->id_chassi);
-        $stmt->bindValue(':chassi_nummer', $this->chassi_nummer);
-        $stmt->bindValue(':tuf', $this->tuf);
-        $stmt->bindValue(':esp', $this->esp);
+        foreach ($this->fields as $col => $val) {
+            $stmt->bindValue(':' . $col, $val);
+        }
+
         if ($stmt->execute()) {
             return ['status' => 200];
         }
@@ -109,22 +158,23 @@ class Chassi
 
     function deleteChassi($route)
     {
-        if ($err = $this->requireUser()) return $err;
+        if ($err = $this->requireUser())
+            return $err;
         $id = $route[1] ?? $this->id_chassi ?? null;
-        
+
         if (!$id) {
             return ['status' => 400, 'error' => 'ID_chassi required'];
         }
-        
+
         $sql = 'DELETE FROM chassi WHERE id_chassi = :id_chassi';
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':id_chassi', $id);
-        
+
         if ($stmt->execute()) {
-           return ['status' => 200, 'message' => 'Chassi успешно удален'];
+            return ['status' => 200, 'message' => 'Chassi успешно удален'];
         } else {
             $errorInfo = $stmt->errorInfo();
-           error_log('Ошибка удаления Chassi: ' . $errorInfo[2]);
+            error_log('Ошибка удаления Chassi: ' . $errorInfo[2]);
             return ['status' => 400, 'error' => 'Ошибка удаления Chassi'];
         }
     }
@@ -134,7 +184,7 @@ class Chassi
         $raw = file_get_contents('php://input');
         $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
 
-        if(stripos($contentType, 'application/json') !== false) {
+        if (stripos($contentType, 'application/json') !== false) {
             $data = json_decode($raw, true);
             return is_array($data) ? $data : [];
         }
@@ -147,14 +197,22 @@ class Chassi
         if (isset($data['id_chassi'])) {
             $this->id_chassi = $data['id_chassi'];
         }
-        if (isset($data['chassi_nummer'])) {
-            $this->chassi_nummer = $data['chassi_nummer'];
+        foreach (self::ALLOWED as $col) {
+            if (array_key_exists($col, $data)) {
+                $this->fields[$col] = $this->sanitize($col, $data[$col]);
+            }
         }
-        if (isset($data['tuf'])) {
-            $this->tuf = $data['tuf'];
+    }
+
+    // Булевы поля -> 0/1, статусы осей -> только 'OK' / 'Auf Ersatz'.
+    private function sanitize($col, $value)
+    {
+        if ($col === 'adr' || $col === 'a_schild') {
+            return ($value === true || $value === 1 || $value === '1' || $value === 'true') ? 1 : 0;
         }
-        if (isset($data['esp'])) {
-            $this->esp = $data['esp'];
+        if (strpos($col, 'achse') === 0) {
+            return trim((string) $value) === 'Auf Ersatz' ? 'Auf Ersatz' : 'OK';
         }
+        return $value;
     }
 }

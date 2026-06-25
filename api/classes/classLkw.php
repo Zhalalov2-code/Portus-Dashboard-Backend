@@ -10,6 +10,29 @@ class Lkw
     private $esp;
     private $lkw_nummer;
 
+    // Поля, пришедшие с формы (заполняются в hydrateForm). Используются
+    // для создания и для ЧАСТИЧНОГО обновления — обновляются только те
+    // колонки, что реально пришли в запросе, чтобы, например, обычное
+    // редактирование (номер/TÜF/SP) не затирало статусы осей, и наоборот.
+    private $fields = [];
+
+    // Белый список колонок, которые можно писать через API.
+    // Имена берутся только отсюда — в SQL не попадают произвольные ключи.
+    private const ALLOWED = [
+        'tuf',
+        'esp',
+        'lkw_nummer',
+        'adr',
+        'a_schild',
+        'feuerloescher',
+        'achse1_links',
+        'achse1_rechts',
+        'achse2_links',
+        'achse2_rechts',
+        'achse3_links',
+        'achse3_rechts',
+    ];
+
     public function __construct($id_lkw = null, $tuf = null, $esp = null, $lkw_nummer = '')
     {
         $this->db = DB::getInstance();
@@ -25,7 +48,6 @@ class Lkw
         switch ($method) {
             case 'GET':
                 return $this->getLkw();
-                break;
             case 'POST':
                 if ($res1 === null) {
                     $data = $this->getReqData();
@@ -37,10 +59,8 @@ class Lkw
                 $data = $this->getReqData();
                 $this->hydrateForm($data);
                 return $this->putlkw();
-                break;
             case 'DELETE':
                 return $this->deleteLkw();
-                break;
             default:
                 return ['status' => 405];
         }
@@ -52,6 +72,12 @@ class Lkw
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Булевы поля приводим к int, чтобы фронт получал 0/1, а не "0"/"1".
+        foreach ($result as &$row) {
+            $row['adr'] = (int) ($row['adr'] ?? 0);
+            $row['a_schild'] = (int) ($row['a_schild'] ?? 0);
+            $row['feuerloescher'] = (int) ($row['feuerloescher'] ?? 0);
+        }
         return $result;
     }
 
@@ -67,23 +93,40 @@ class Lkw
     {
         if ($err = $this->requireUser())
             return $err;
-        $sql = 'INSERT INTO lkw ( tuf, esp, lkw_nummer)
-                VALUES ( :tuf, :esp, :lkw_nummer)';
+
+        // Значения по умолчанию для полей, которые не пришли с формы создания
+        // (форма создания заполняет только номер/TÜF/SP).
+        $defaults = [
+            'tuf' => null,
+            'esp' => null,
+            'lkw_nummer' => '',
+            'adr' => 0,
+            'a_schild' => 0,
+            'feuerloescher' => 0,
+            'achse1_links' => 'OK',
+            'achse1_rechts' => 'OK',
+            'achse2_links' => 'OK',
+            'achse2_rechts' => 'OK',
+            'achse3_links' => 'OK',
+            'achse3_rechts' => 'OK',
+        ];
+        $vals = array_merge($defaults, $this->fields);
+        $cols = array_keys($defaults);
+
+        $colList = implode(', ', $cols);
+        $placeholders = implode(', ', array_map(fn($c) => ':' . $c, $cols));
+        $sql = "INSERT INTO lkw ($colList) VALUES ($placeholders)";
         $stmt = $this->db->prepare($sql);
-        $stmt->bindValue(':tuf', $this->tuf);
-        $stmt->bindValue(':esp', $this->esp);
-        $stmt->bindValue(':lkw_nummer', $this->lkw_nummer);
+        foreach ($cols as $c) {
+            $stmt->bindValue(':' . $c, $vals[$c]);
+        }
+
         if ($stmt->execute()) {
             http_response_code(201);
             return [
                 'status' => 201,
                 'message' => 'LKW создан успешно',
-                'lkw' => [
-                    'id_lkw' => $this->db->lastInsertId(),
-                    'tuf' => $this->tuf,
-                    'esp' => $this->esp,
-                    'lkw_nummer' => $this->lkw_nummer,
-                ]
+                'lkw' => array_merge(['id_lkw' => $this->db->lastInsertId()], $vals),
             ];
         }
         return ['status' => 400, 'message' => 'Ошибка при создании LKW'];
@@ -93,16 +136,26 @@ class Lkw
     {
         if ($err = $this->requireUser())
             return $err;
-        $sql = 'UPDATE lkw
-                    SET lkw_nummer = :lkw_nummer,
-                       tuf = :tuf,
-                       esp = :esp
-                 WHERE id_lkw = :id_lkw';
+
+        if (!$this->id_lkw) {
+            return ['status' => 400, 'message' => 'id_lkw обязателен'];
+        }
+        if (empty($this->fields)) {
+            return ['status' => 400, 'message' => 'Нет полей для обновления'];
+        }
+
+        // Частичный UPDATE: только переданные колонки (имена — из белого списка).
+        $set = [];
+        foreach ($this->fields as $col => $_val) {
+            $set[] = "$col = :$col";
+        }
+        $sql = 'UPDATE lkw SET ' . implode(', ', $set) . ' WHERE id_lkw = :id_lkw';
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':id_lkw', $this->id_lkw);
-        $stmt->bindValue(':lkw_nummer', $this->lkw_nummer);
-        $stmt->bindValue(':tuf', $this->tuf);
-        $stmt->bindValue(':esp', $this->esp);
+        foreach ($this->fields as $col => $val) {
+            $stmt->bindValue(':' . $col, $val);
+        }
+
         if ($stmt->execute()) {
             return ['status' => 200, 'message' => 'LKW успешно обновлен'];
         }
@@ -140,14 +193,23 @@ class Lkw
         if (isset($data['id_lkw'])) {
             $this->id_lkw = $data['id_lkw'];
         }
-        if (isset($data['tuf'])) {
-            $this->tuf = $data['tuf'];
+        foreach (self::ALLOWED as $col) {
+            if (array_key_exists($col, $data)) {
+                $this->fields[$col] = $this->sanitize($col, $data[$col]);
+            }
         }
-        if (isset($data['esp'])) {
-            $this->esp = $data['esp'];
+    }
+
+    // Приводим значения к ожидаемому виду: булевы — к 0/1, статусы осей —
+    // только к допустимым значениям 'OK' / 'Auf Ersatz'.
+    private function sanitize($col, $value)
+    {
+        if ($col === 'adr' || $col === 'a_schild' || $col === 'feuerloescher') {
+            return ($value === true || $value === 1 || $value === '1' || $value === 'true') ? 1 : 0;
         }
-        if (isset($data['lkw_nummer'])) {
-            $this->lkw_nummer = $data['lkw_nummer'];
+        if (strpos($col, 'achse') === 0) {
+            return trim((string) $value) === 'Auf Ersatz' ? 'Auf Ersatz' : 'OK';
         }
+        return $value;
     }
 }
