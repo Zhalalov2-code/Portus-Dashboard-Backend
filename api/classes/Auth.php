@@ -117,7 +117,7 @@ class Auth
 
         if ($row['subject_type'] === 'user') {
             $stmt = $db->prepare(
-                'SELECT id, email, name, lastname, role, department_id, vacation_days_per_year
+                'SELECT id, username, name, lastname, role, department_id, vacation_days_per_year
                  FROM users WHERE id = :id LIMIT 1'
             );
             $stmt->bindValue(':id', $row['subject_id']);

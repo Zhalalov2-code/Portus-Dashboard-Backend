@@ -5,7 +5,7 @@ require_once __DIR__ . '/Auth.php';
 class Users
 {
     private $id;
-    private $email;
+    private $username;
     private $password;
     private $name;
     private $lastname;
@@ -14,11 +14,11 @@ class Users
     private $vacation_days_per_year = 28;
     private $db;
 
-    function __construct($id = null, $email = '', $password = '', $name = '', $lastname = '', $role = '', $department_id = null)
+    function __construct($id = null, $username = '', $password = '', $name = '', $lastname = '', $role = '', $department_id = null)
     {
         $this->db = DB::getInstance();
         $this->id = $id;
-        $this->email = $email;
+        $this->username = $username;
         $this->password = $password;
         $this->name = $name;
         $this->lastname = $lastname;
@@ -62,13 +62,15 @@ class Users
 
     function userLogin()
     {
-        if (empty($this->email) || empty($this->password)) {
-            return ['status' => 400, 'error' => 'Email и пароль обязательны'];
+        $login = trim((string) $this->username);
+
+        if ($login === '' || empty($this->password)) {
+            return ['status' => 400, 'error' => 'Имя пользователя и пароль обязательны'];
         }
 
-        $sql = 'SELECT * FROM users WHERE email = :email LIMIT 1';
+        $sql = 'SELECT * FROM users WHERE LOWER(username) = LOWER(:login) LIMIT 1';
         $stmt = $this->db->prepare($sql);
-        $stmt->bindValue(':email', $this->email);
+        $stmt->bindValue(':login', $login);
         $stmt->execute();
 
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -80,7 +82,7 @@ class Users
             return ['status' => 200, 'user' => $user, 'token' => $token];
         }
 
-        return ['status' => 401, 'error' => 'Неверный email или пароль'];
+        return ['status' => 401, 'error' => 'Неверное имя пользователя или пароль'];
     }
 
     function userLogout()
@@ -124,6 +126,28 @@ class Users
         return $current && strtolower(trim($current['role'] ?? '')) === 'admin';
     }
 
+    /**
+     * Проверяет, занято ли имя пользователя (без учёта регистра).
+     * $excludeId позволяет исключить самого пользователя при обновлении.
+     */
+    private function usernameTaken($username, $excludeId = null)
+    {
+        $sql = 'SELECT id FROM users WHERE LOWER(username) = LOWER(:username)';
+        if ($excludeId !== null) {
+            $sql .= ' AND id != :id';
+        }
+        $sql .= ' LIMIT 1';
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue(':username', $username);
+        if ($excludeId !== null) {
+            $stmt->bindValue(':id', $excludeId);
+        }
+        $stmt->execute();
+
+        return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
     function userGet()
     {
         if (!$this->isAdmin()) {
@@ -149,24 +173,43 @@ class Users
             return ['status' => 400, 'error' => 'Пароль обязателен'];
         }
 
-        $sql = 'INSERT INTO users (email, password, name, lastname, role, department_id, vacation_days_per_year)
-                VALUES (:email, :password, :name, :lastname, :role, :department_id, :vacation_days_per_year)';
+        $this->username = trim((string) $this->username);
+        if ($this->username === '') {
+            return ['status' => 400, 'error' => 'Benutzername ist erforderlich'];
+        }
+        if ($this->usernameTaken($this->username)) {
+            return ['status' => 409, 'error' => 'Benutzername ist bereits vergeben'];
+        }
+
+        $sql = 'INSERT INTO users (username, password, name, lastname, role, department_id, vacation_days_per_year)
+                VALUES (:username, :password, :name, :lastname, :role, :department_id, :vacation_days_per_year)';
         $stmt = $this->db->prepare($sql);
-        $stmt->bindValue(':email', $this->email);
+        $stmt->bindValue(':username', $this->username);
         $stmt->bindValue(':password', password_hash($this->password, PASSWORD_DEFAULT));
         $stmt->bindValue(':name', $this->name);
         $stmt->bindValue(':lastname', $this->lastname);
         $stmt->bindValue(':role', $this->role);
         $stmt->bindValue(':department_id', $this->department_id ?: null);
         $stmt->bindValue(':vacation_days_per_year', (int) $this->vacation_days_per_year);
-        if ($stmt->execute()) {
+
+        try {
+            $ok = $stmt->execute();
+        } catch (PDOException $e) {
+            // Гонка: имя занято между проверкой и вставкой (UNIQUE-индекс).
+            if ($e->getCode() === '23000') {
+                return ['status' => 409, 'error' => 'Benutzername ist bereits vergeben'];
+            }
+            throw $e;
+        }
+
+        if ($ok) {
             $id = $this->db->lastInsertId();
             return [
                 'status' => 201,
                 'message' => 'Пользователь зарегистрирован',
                 'user' => [
                     'id' => $id,
-                    'email' => $this->email,
+                    'username' => $this->username,
                     'name' => $this->name,
                     'lastname' => $this->lastname,
                     'role' => $this->role,
@@ -195,9 +238,17 @@ class Users
             $this->department_id = $current['department_id'] ?? $this->department_id;
         }
 
+        $this->username = trim((string) $this->username);
+        if ($this->username === '') {
+            return ['status' => 400, 'error' => 'Benutzername ist erforderlich'];
+        }
+        if ($this->usernameTaken($this->username, $this->id)) {
+            return ['status' => 409, 'error' => 'Benutzername ist bereits vergeben'];
+        }
+
         if (!empty($this->password)) {
             $sql = 'UPDATE users
-                       SET email = :email,
+                       SET username = :username,
                            password = :password,
                            name = :name,
                            lastname = :lastname,
@@ -207,7 +258,7 @@ class Users
                      WHERE id = :id';
         } else {
             $sql = 'UPDATE users
-                       SET email = :email,
+                       SET username = :username,
                            name = :name,
                            lastname = :lastname,
                            role = :role,
@@ -217,7 +268,7 @@ class Users
         }
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':id', $this->id);
-        $stmt->bindValue(':email', $this->email);
+        $stmt->bindValue(':username', $this->username);
         $stmt->bindValue(':name', $this->name);
         $stmt->bindValue(':lastname', $this->lastname);
         $stmt->bindValue(':role', $this->role);
@@ -226,7 +277,18 @@ class Users
         if (!empty($this->password)) {
             $stmt->bindValue(':password', password_hash($this->password, PASSWORD_DEFAULT));
         }
-        if ($stmt->execute()) {
+
+        try {
+            $ok = $stmt->execute();
+        } catch (PDOException $e) {
+            // Гонка: имя занято между проверкой и обновлением (UNIQUE-индекс).
+            if ($e->getCode() === '23000') {
+                return ['status' => 409, 'error' => 'Benutzername ist bereits vergeben'];
+            }
+            throw $e;
+        }
+
+        if ($ok) {
             return ['status' => 200];
         }
         return ['status' => 400];
@@ -269,8 +331,8 @@ class Users
         if (isset($data['id'])) {
             $this->id = $data['id'];
         }
-        if (isset($data['email'])) {
-            $this->email = $data['email'];
+        if (isset($data['username'])) {
+            $this->username = $data['username'];
         }
         if (isset($data['password'])) {
             $this->password = $data['password'];

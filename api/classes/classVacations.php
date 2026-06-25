@@ -497,13 +497,9 @@ class Vacations
 
     private function emailUser($userId, $message)
     {
-        $stmt = $this->db->prepare('SELECT email FROM users WHERE id = :id');
-        $stmt->bindValue(':id', $userId);
-        $stmt->execute();
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($user && !empty($user['email'])) {
-            EmailNotifier::send($user['email'], 'Benachrichtigung zum Urlaub', $message);
-        }
+        // У пользователей больше нет email — уведомления хранятся только
+        // внутри платформы (таблица notifications). Метод оставлен как
+        // точка расширения на случай возврата email-рассылки.
     }
 
     private function periodLabel($vacation)

@@ -100,7 +100,7 @@ if (count($route) <= 3) {
             } else {
                 $user = new Users(
                     $req['id'] ?? null,
-                    $req['email'] ?? '',
+                    $req['username'] ?? '',
                     $req['password'] ?? '',
                     $req['name'] ?? '',
                     $req['lastname'] ?? '',
