@@ -208,7 +208,10 @@ class Lkw
             return ($value === true || $value === 1 || $value === '1' || $value === 'true') ? 1 : 0;
         }
         if (strpos($col, 'achse') === 0) {
-            return trim((string) $value) === 'Auf Ersatz' ? 'Auf Ersatz' : 'OK';
+            // Статус оси — свободный текст (его заполняет контролёр).
+            // Пусто трактуем как 'OK'.
+            $v = trim((string) $value);
+            return $v === '' ? 'OK' : $v;
         }
         return $value;
     }

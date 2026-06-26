@@ -113,7 +113,10 @@ function postFiles()
             return ['status' => 500, 'message' => 'Ошибка при загрузке файла'];
         }
 
-        $sql = "INSERT INTO files_lkw (id_message, file_name, created_at) VALUES (:id_message, :file_name, CURRENT_TIMESTAMP)";
+        // Колонку времени не указываем — у неё DEFAULT current_timestamp().
+        // (Раньше тут было created_at, которой нет в таблице — колонка
+        // называется created_ad, из-за чего INSERT падал с ошибкой.)
+        $sql = "INSERT INTO files_lkw (id_message, file_name) VALUES (:id_message, :file_name)";
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':id_message', (int)$this->id_message, PDO::PARAM_INT);
         $stmt->bindValue(':file_name', $filename, PDO::PARAM_STR);

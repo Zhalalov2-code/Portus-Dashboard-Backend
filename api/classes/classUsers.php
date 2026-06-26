@@ -68,7 +68,12 @@ class Users
             return ['status' => 400, 'error' => 'Имя пользователя и пароль обязательны'];
         }
 
-        $sql = 'SELECT * FROM users WHERE LOWER(username) = LOWER(:login) LIMIT 1';
+        // department_name нужен фронту для доступа по департаменту
+        // (Tech Kontrolle / Leitende), поэтому подтягиваем его JOIN-ом.
+        $sql = 'SELECT u.*, d.name AS department_name
+                  FROM users u
+                  LEFT JOIN departments d ON u.department_id = d.id
+                 WHERE LOWER(u.username) = LOWER(:login) LIMIT 1';
         $stmt = $this->db->prepare($sql);
         $stmt->bindValue(':login', $login);
         $stmt->execute();
