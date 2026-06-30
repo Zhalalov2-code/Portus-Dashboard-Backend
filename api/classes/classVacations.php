@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/EmailNotifier.php';
 require_once __DIR__ . '/Auth.php';
+require_once __DIR__ . '/Realtime.php';
 
 class Vacations
 {
@@ -491,6 +492,13 @@ class Vacations
         $stmt->bindValue(':type', $type);
         $stmt->bindValue(':message', $message);
         $stmt->execute();
+
+        Realtime::notifyUser($userId, 'notification', [
+            'id' => (int) $this->db->lastInsertId(),
+            'vacation_id' => $vacationId,
+            'type' => $type,
+            'message' => $message,
+        ]);
 
         $this->emailUser($userId, $message);
     }

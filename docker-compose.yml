@@ -70,10 +70,41 @@ services:
       - portusapp
       - proxy
 
+  # Redis — шина событий между API и WebSocket-сервером
+  redis:
+    image: redis:7-alpine
+    container_name: portusapp_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - portusapp
+
+  # WebSocket-сервер (Ratchet) для real-time уведомлений и чата
+  ws:
+    build: .
+    container_name: portusapp_ws
+    restart: unless-stopped
+    command: ["php", "realtime/ws-server.php"]
+    ports:
+      - "${WS_PORT:-8090}:${WS_PORT:-8090}"
+    volumes:
+      - ./.env:/var/www/html/.env:ro
+      - logs:/var/www/html/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - portusapp
+      - proxy
+
 volumes:
   uploads:
   logs:
   db_data:
+  redis_data:
 
 networks:
   portusapp:

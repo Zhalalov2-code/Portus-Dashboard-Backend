@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/EmailNotifier.php';
 require_once __DIR__ . '/Auth.php';
+require_once __DIR__ . '/Realtime.php';
 
 class Tasks
 {
@@ -455,6 +456,14 @@ class Tasks
         $stmt->bindValue(':type', $type);
         $stmt->bindValue(':message', $message);
         $stmt->execute();
+
+        // Real-time уведомление пользователю (WebSocket).
+        Realtime::notifyUser($userId, 'notification', [
+            'id' => (int) $this->db->lastInsertId(),
+            'task_id' => $taskId,
+            'type' => $type,
+            'message' => $message,
+        ]);
 
         $this->emailUser($userId, $message);
     }

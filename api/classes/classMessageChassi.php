@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/Auth.php';
+require_once __DIR__ . '/Realtime.php';
 
 class MessageChassi
 {
@@ -89,7 +90,15 @@ class MessageChassi
         $stmt->bindValue(':address', $this->address);
         $stmt->execute();
 
-        return ['status' => 201, 'message' => 'Сообщение и шасси связаны', 'id' => $this->db->lastInsertId()];
+        $newId = $this->db->lastInsertId();
+        Realtime::notifyRoom('chassi-' . (int) $this->id_chassi, 'message', [
+            'id_message' => (int) $newId,
+            'id_chassi' => (int) $this->id_chassi,
+            'type_sender' => $this->type_sender,
+            'text' => $this->text,
+        ]);
+
+        return ['status' => 201, 'message' => 'Сообщение и шасси связаны', 'id' => $newId];
     }
 
     function deleteMessageChassi()

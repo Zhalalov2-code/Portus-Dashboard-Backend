@@ -10,3 +10,6 @@ api/uploads/
 
 # Логи
 *.log
+
+# Composer — зависимости ставятся при сборке (composer install), lock коммитим
+/vendor/

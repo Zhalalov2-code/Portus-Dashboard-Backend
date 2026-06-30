@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/Auth.php';
+require_once __DIR__ . '/Realtime.php';
 
 class MessageLkw
 {
@@ -71,7 +72,16 @@ class MessageLkw
         $stmt->bindValue(':text', $this->text);
         $stmt->execute();
 
-        return ['status' => 201, 'message' => 'Сообщение и грузовик связаны', 'id' => $this->db->lastInsertId()];
+        $newId = $this->db->lastInsertId();
+        // Real-time: всем, кто открыл чат этого LKW.
+        Realtime::notifyRoom('lkw-' . (int) $this->id_lkw, 'message', [
+            'id_message' => (int) $newId,
+            'id_lkw' => (int) $this->id_lkw,
+            'type_sender' => $this->type_sender,
+            'text' => $this->text,
+        ]);
+
+        return ['status' => 201, 'message' => 'Сообщение и грузовик связаны', 'id' => $newId];
     }
 
     function deleteMessageLkw()
