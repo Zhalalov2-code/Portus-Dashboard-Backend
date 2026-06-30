@@ -7,7 +7,7 @@ class Tasks
 {
     const URGENCIES = ['low', 'medium', 'high', 'urgent'];
     const IMPORTANCES = ['low', 'medium', 'high', 'critical'];
-    const STATUSES = ['new', 'in_progress', 'clarification', 'done', 'closed', 'cancelled'];
+    const STATUSES = ['new', 'in_progress', 'clarification', 'done'];
 
     private $db;
     private $data;
@@ -183,7 +183,7 @@ class Tasks
             $params[':due_to'] = $this->data['due_to'];
         }
         if (!empty($this->data['overdue'])) {
-            $where[] = "due_date IS NOT NULL AND due_date < NOW() AND status NOT IN ('done', 'closed', 'cancelled')";
+            $where[] = "due_date IS NOT NULL AND due_date < NOW() AND status NOT IN ('done')";
         }
         if (!empty($this->data['search'])) {
             $where[] = '(title LIKE :search OR description LIKE :search)';
@@ -535,12 +535,10 @@ class Tasks
     private function statusLabel($status)
     {
         $labels = [
-            'new' => 'Neu',
+            'new' => 'Wartet auf Bestätigung',
             'in_progress' => 'In Bearbeitung',
-            'clarification' => 'Rückfrage erforderlich',
+            'clarification' => 'Rückfrage / Klärung',
             'done' => 'Erledigt',
-            'closed' => 'Geschlossen',
-            'cancelled' => 'Abgebrochen',
         ];
         return $labels[$status] ?? $status;
     }
