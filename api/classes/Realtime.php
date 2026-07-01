@@ -86,4 +86,23 @@ class Realtime
             'data' => $data,
         ]);
     }
+
+    /** Событие всем подключённым клиентам. */
+    public static function notifyAll(string $event, $data)
+    {
+        self::push([
+            'target' => 'all',
+            'event' => $event,
+            'data' => $data,
+        ]);
+    }
+
+    /**
+     * Сообщить всем, что изменилась сущность (task/lkw/chassi/vacation/...),
+     * чтобы клиенты перезапросили соответствующий список.
+     */
+    public static function entityChanged(string $entity)
+    {
+        self::notifyAll('data', ['entity' => $entity]);
+    }
 }

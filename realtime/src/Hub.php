@@ -116,7 +116,9 @@ class Hub implements MessageComponentInterface
         foreach ($this->clients as $conn) {
             $meta = $this->clients[$conn];
             $send = false;
-            if ($target === 'user' && (int) ($entry['id'] ?? 0) === $meta['userId']) {
+            if ($target === 'all') {
+                $send = true;
+            } elseif ($target === 'user' && (int) ($entry['id'] ?? 0) === $meta['userId']) {
                 $send = true;
             } elseif ($target === 'room' && isset($meta['rooms'][$entry['room'] ?? ''])) {
                 $send = true;

@@ -244,4 +244,29 @@ if (count($route) <= 3) {
     $arr_json = ['status' => 401, 'error' => 'Слишком много сегментов'];
 }
 
+// --- Real-time: после успешных POST/PUT/DELETE широковещательно сообщаем
+// об изменении сущности, чтобы у всех клиентов обновились соответствующие
+// списки (RTK Query перезапросит только активные подписки). ---
+if (in_array($method, ['POST', 'PUT', 'DELETE'], true) && is_array($arr_json)) {
+    $status = $arr_json['status'] ?? 200;
+    if ($status >= 200 && $status < 300) {
+        $entityMap = [
+            'tasks' => 'task',
+            'lkw' => 'lkw',
+            'chassi' => 'chassi',
+            'vacations' => 'vacation',
+            'departments' => 'department',
+            'users' => 'user',
+            'fahrer' => 'fahrer',
+        ];
+        $routeKey = $route[0] ?? '';
+        $sub = $route[1] ?? '';
+        // login/logout — не изменения данных, чат идёт своим путём (по комнатам)
+        if (isset($entityMap[$routeKey]) && !in_array($sub, ['login', 'logout'], true)) {
+            require_once __DIR__ . '/classes/Realtime.php';
+            Realtime::entityChanged($entityMap[$routeKey]);
+        }
+    }
+}
+
 echo json_encode($arr_json);
