@@ -155,15 +155,24 @@ class Users
 
     function userGet()
     {
-        if (!$this->isAdmin()) {
+        // Список пользователей нужен и не-админам — например, чтобы выбрать
+        // исполнителя задачи (Verantwortlich). Поэтому доступ есть у любого
+        // авторизованного, но набор полей разный:
+        //   - админ: полные данные (для управления в Abteilungen);
+        //   - остальные: только базовое (id/имя/роль/отдел) для выбора людей.
+        if (!Auth::currentUser()) {
             return ['status' => 403, 'error' => 'Доступ запрещён'];
         }
-        $sql = 'SELECT * FROM users';
+
+        if ($this->isAdmin()) {
+            $sql = 'SELECT id, username, name, lastname, role, department_id, vacation_days_per_year FROM users';
+        } else {
+            $sql = 'SELECT id, name, lastname, role, department_id FROM users';
+        }
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($users as &$u) {
-            unset($u['password']);
             $u['role'] = strtolower(trim($u['role'] ?? ''));
         }
         return ['status' => 200, 'data' => $users];
