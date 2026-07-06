@@ -81,6 +81,12 @@ class MessageLkw
             'text' => $this->text,
         ]);
 
+        // Push водителю этой машины — только если пишет сотрудник.
+        if (Auth::currentUser()) {
+            require_once __DIR__ . '/ExpoPush.php';
+            ExpoPush::toVehicleDriverById($this->db, 'lkw', $this->id_lkw, 'Сообщение по грузовику', $this->text ?: 'Новое сообщение');
+        }
+
         return ['status' => 201, 'message' => 'Сообщение и грузовик связаны', 'id' => $newId];
     }
 

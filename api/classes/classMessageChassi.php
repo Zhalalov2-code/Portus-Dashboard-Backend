@@ -98,6 +98,12 @@ class MessageChassi
             'text' => $this->text,
         ]);
 
+        // Push водителю этого прицепа — только если пишет сотрудник.
+        if (Auth::currentUser()) {
+            require_once __DIR__ . '/ExpoPush.php';
+            ExpoPush::toVehicleDriverById($this->db, 'chassi', $this->id_chassi, 'Сообщение по прицепу', $this->text ?: 'Новое сообщение');
+        }
+
         return ['status' => 201, 'message' => 'Сообщение и шасси связаны', 'id' => $newId];
     }
 

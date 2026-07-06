@@ -26,6 +26,11 @@ class Hub implements MessageComponentInterface
         $this->pdo = ($dbConnect)();
     }
 
+    /**
+     * Проверяет токен и возвращает ['type' => 'user'|'fahrer', 'id' => int]
+     * или null. Подключаться могут и сотрудники (админка), и водители
+     * (мобильное приложение) — им обоим нужны live-обновления данных.
+     */
     private function validateToken($token)
     {
         if (!$token) {
@@ -41,10 +46,10 @@ class Hub implements MessageComponentInterface
                 $stmt->bindValue(':token', $token);
                 $stmt->execute();
                 $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                if (!$row || $row['subject_type'] !== 'user') {
+                if (!$row || !in_array($row['subject_type'], ['user', 'fahrer'], true)) {
                     return null;
                 }
-                return (int) $row['subject_id'];
+                return ['type' => $row['subject_type'], 'id' => (int) $row['subject_id']];
             } catch (\PDOException $e) {
                 $this->pdo = ($this->dbConnect)();
             }
@@ -60,14 +65,18 @@ class Hub implements MessageComponentInterface
         }
         parse_str($query, $params);
 
-        $userId = $this->validateToken($params['token'] ?? '');
-        if (!$userId) {
+        $subject = $this->validateToken($params['token'] ?? '');
+        if (!$subject) {
             $conn->close();
             return;
         }
 
-        $this->clients->attach($conn, ['userId' => $userId, 'rooms' => []]);
-        $conn->send(json_encode(['event' => 'connected', 'data' => ['userId' => $userId]]));
+        $this->clients->attach($conn, [
+            'type' => $subject['type'],
+            'userId' => $subject['id'],
+            'rooms' => [],
+        ]);
+        $conn->send(json_encode(['event' => 'connected', 'data' => ['userId' => $subject['id'], 'type' => $subject['type']]]));
     }
 
     public function onMessage(ConnectionInterface $from, $msg)
@@ -118,7 +127,8 @@ class Hub implements MessageComponentInterface
             $send = false;
             if ($target === 'all') {
                 $send = true;
-            } elseif ($target === 'user' && (int) ($entry['id'] ?? 0) === $meta['userId']) {
+            } elseif ($target === 'user' && ($meta['type'] ?? 'user') === 'user' && (int) ($entry['id'] ?? 0) === $meta['userId']) {
+                // Личные уведомления адресованы сотрудникам — id водителя может совпасть.
                 $send = true;
             } elseif ($target === 'room' && isset($meta['rooms'][$entry['room'] ?? ''])) {
                 $send = true;
