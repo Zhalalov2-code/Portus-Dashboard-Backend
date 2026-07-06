@@ -130,12 +130,12 @@ if (count($route) <= 3) {
                     $req['id_fahrer'] ?? $route[1] ?? null,
                     $req['name'] ?? '',
                     $req['lastname'] ?? '',
-                    $req['email'] ?? '',
                     $req['password'] ?? '',
                     $req['lkw'] ?? '',
                     $req['chassi'] ?? '',
                     $req['phone'] ?? '',
-                    $req['terms'] ?? false
+                    $req['terms'] ?? false,
+                    $req['driver_code'] ?? ''
                 );
             }
             $arr_json = $fahrer->verifyMethod($method, $route);
@@ -235,6 +235,12 @@ if (count($route) <= 3) {
 
             $vacations = new Vacations($_REQUEST);
             $arr_json = $vacations->verifyMethod($method, $route);
+            break;
+        case 'vehicle_history':
+            include(__DIR__ . '/classes/classVehicleHistory.php');
+
+            $history = new VehicleHistory();
+            $arr_json = $history->verifyMethod($method, $route);
             break;
         default:
             http_response_code(404);

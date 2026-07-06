@@ -1,32 +1,33 @@
     <?php
     require_once __DIR__ . '/../config/db.php';
     require_once __DIR__ . '/Auth.php';
+    require_once __DIR__ . '/classVehicleHistory.php';
 
     class Fahrer
     {
         private $id_fahrer;
+        private $driver_code;
         private $name;
         private $lastname;
         private $lkw;
         private $chassi;
-        private $email;
         private $password;
         private $phone;
         private $terms;
         private $db;
 
-        function __construct($id_fahrer = null, $name = '', $lastname = '', $email = '', $password = '', $lkw = '', $chassi = '', $phone = '', $terms = false)
+        function __construct($id_fahrer = null, $name = '', $lastname = '', $password = '', $lkw = '', $chassi = '', $phone = '', $terms = false, $driver_code = '')
         {
             $this->db = DB::getInstance();
             $this->id_fahrer = $id_fahrer;
             $this->name = $name;
             $this->lastname = $lastname;
-            $this->email = $email;
             $this->password = $password;
             $this->lkw = $lkw;
             $this->chassi = $chassi;
             $this->phone = $phone;
             $this->terms = $terms;
+            $this->driver_code = $driver_code;
         }
 
         function verifyMethod($method, $route)
@@ -34,6 +35,9 @@
             $res1 = $route[1] ?? null;
             switch ($method) {
                 case 'GET':
+                    if ($res1 === 'me') {
+                        return $this->fahrerMe();
+                    }
                     return $this->fahrerGet();
                     break;
                 case 'POST':
@@ -41,6 +45,8 @@
                         $data = $this->getReqData();
                         $this->hydrateForm($data);
                         return $this->fahrerLogin();
+                    } elseif ($res1 === 'push_token') {
+                        return $this->savePushToken();
                     } elseif ($res1 === null) {
                         $data = $this->getReqData();
                         $this->hydrateForm($data);
@@ -64,13 +70,13 @@
 
         function fahrerLogin()
         {
-            if (empty($this->email) || empty($this->password)) {
-                return ['status' => 400, 'error' => 'Email и пароль обязательны'];
+            if (empty($this->driver_code) || empty($this->password)) {
+                return ['status' => 400, 'error' => 'Код водителя и пароль обязательны'];
             }
 
-            $sql = 'SELECT * FROM fahrer WHERE email = :email LIMIT 1';
+            $sql = 'SELECT * FROM fahrer WHERE driver_code = :code LIMIT 1';
             $stmt = $this->db->prepare($sql);
-            $stmt->bindValue(':email', $this->email);
+            $stmt->bindValue(':code', $this->driver_code);
             $stmt->execute();
 
             $fahrer = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -81,7 +87,7 @@
                 return ['status' => 200, 'fahrer' => $fahrer, 'token' => $token];
             }
 
-            return ['status' => 401, 'error' => 'Неверный email или пароль'];
+            return ['status' => 401, 'error' => 'Неверный код водителя или пароль'];
         }
 
         /**
@@ -109,9 +115,62 @@
             return false;
         }
 
+        /** Генерирует уникальный код водителя формата DR-XXXXXX (без 0/O/1/I). */
+        private function generateDriverCode()
+        {
+            $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            $len = strlen($alphabet);
+            do {
+                $code = 'DR-';
+                for ($i = 0; $i < 6; $i++) {
+                    $code .= $alphabet[random_int(0, $len - 1)];
+                }
+                $chk = $this->db->prepare('SELECT COUNT(*) FROM fahrer WHERE driver_code = :c');
+                $chk->bindValue(':c', $code);
+                $chk->execute();
+            } while ((int) $chk->fetchColumn() > 0);
+            return $code;
+        }
+
+        /**
+         * Свои данные для мобильного приложения (GET /fahrer/me).
+         * Auth::resolve() уже загрузил свежую строку из БД по токену —
+         * возвращаем её, чтобы приложение могло обновить профиль live.
+         */
+        function fahrerMe()
+        {
+            $self = Auth::currentFahrer();
+            if (!$self) {
+                return ['status' => 403, 'error' => 'Только для водителей'];
+            }
+            return ['status' => 200, 'fahrer' => $self];
+        }
+
+        /**
+         * Сохранить Expo push-токен текущего водителя (POST /fahrer/push_token).
+         * Приложение вызывает после логина; токен используется ExpoPush.
+         */
+        function savePushToken()
+        {
+            $self = Auth::currentFahrer();
+            if (!$self) {
+                return ['status' => 403, 'error' => 'Только для водителей'];
+            }
+            $data = $this->getReqData();
+            $token = trim((string) ($data['push_token'] ?? ''));
+            if ($token === '' || strlen($token) > 255) {
+                return ['status' => 400, 'error' => 'push_token обязателен'];
+            }
+            $stmt = $this->db->prepare('UPDATE fahrer SET push_token = :t WHERE id_fahrer = :id');
+            $stmt->bindValue(':t', $token);
+            $stmt->bindValue(':id', $self['id_fahrer']);
+            $stmt->execute();
+            return ['status' => 200];
+        }
+
         function fahrerGet()
         {
-            // Список водителей содержит ПДн (телефон, email) — доступен только
+            // Список водителей содержит ПДн (телефон) — доступен только
             // авторизованным сотрудникам, не самим водителям.
             if (!Auth::currentUser()) {
                 return ['status' => 403, 'error' => 'Доступ запрещён'];
@@ -128,10 +187,12 @@
 
         function fahrerPost()
         {
-            $sql = 'INSERT INTO fahrer (email, password, name, lastname, lkw, chassi, phone, terms)
-                    VALUES (:email, :password, :name, :lastname, :lkw, :chassi, :phone, :terms)';
+            $driverCode = $this->generateDriverCode();
+
+            $sql = 'INSERT INTO fahrer (driver_code, password, name, lastname, lkw, chassi, phone, terms)
+                    VALUES (:driver_code, :password, :name, :lastname, :lkw, :chassi, :phone, :terms)';
             $stmt = $this->db->prepare($sql);
-            $stmt->bindValue(':email', $this->email);
+            $stmt->bindValue(':driver_code', $driverCode);
             $stmt->bindValue(':password', password_hash($this->password, PASSWORD_DEFAULT));
             $stmt->bindValue(':name', $this->name);
             $stmt->bindValue(':lastname', $this->lastname);
@@ -141,14 +202,26 @@
             $stmt->bindValue(':terms', $this->terms, PDO::PARAM_BOOL);
             if ($stmt->execute()) {
                 $id_fahrer = $this->db->lastInsertId();
+
+                // Если водителю сразу назначили транспорт — открываем историю.
+                VehicleHistory::onFahrerChange(
+                    $this->db,
+                    $id_fahrer,
+                    trim($this->name . ' ' . $this->lastname),
+                    '',
+                    $this->lkw,
+                    '',
+                    $this->chassi
+                );
+
                 return [
                     'status' => 201,
                     'message' => 'Fahrer зарегистрирован',
                     'fahrer' => [
                         'id_fahrer' => $id_fahrer,
+                        'driver_code' => $driverCode,
                         'name' => $this->name,
                         'lastname' => $this->lastname,
-                        'email' => $this->email,
                         'lkw' => $this->lkw,
                         'chassi' => $this->chassi,
                         'phone' => $this->phone,
@@ -169,14 +242,24 @@
                 return ['status' => 403, 'error' => 'Доступ запрещён'];
             }
 
+            // Текущее состояние — чтобы зафиксировать изменение назначения в истории.
+            $cur = $this->db->prepare('SELECT name, lastname, lkw, chassi FROM fahrer WHERE id_fahrer = :id LIMIT 1');
+            $cur->bindValue(':id', $this->id_fahrer);
+            $cur->execute();
+            $old = $cur->fetch(PDO::FETCH_ASSOC) ?: ['lkw' => '', 'chassi' => '', 'name' => '', 'lastname' => ''];
+
+            // Смена пароля — опционально: обновляем только если передан непустой.
+            $changePassword = isset($this->password) && $this->password !== '';
+
             $sql = 'UPDATE fahrer
-                    SET name = :name, 
-                        lastname = :lastname, 
-                        lkw = :lkw, 
+                    SET name = :name,
+                        lastname = :lastname,
+                        lkw = :lkw,
                         chassi = :chassi,
                         phone = :phone,
-                        terms = :terms
-                    WHERE id_fahrer = :id_fahrer';
+                        terms = :terms'
+                . ($changePassword ? ', password = :password' : '') .
+                ' WHERE id_fahrer = :id_fahrer';
             $stmt = $this->db->prepare($sql);
             $stmt->bindValue(':id_fahrer', $this->id_fahrer);
             $stmt->bindValue(':name', $this->name);
@@ -185,7 +268,36 @@
             $stmt->bindValue(':chassi', $this->chassi);
             $stmt->bindValue(':phone', $this->phone);
             $stmt->bindValue(':terms', $this->terms, PDO::PARAM_BOOL);
+            if ($changePassword) {
+                $stmt->bindValue(':password', password_hash($this->password, PASSWORD_DEFAULT));
+            }
             if ($stmt->execute()) {
+                $name = trim(($this->name ?: $old['name']) . ' ' . ($this->lastname ?: $old['lastname']));
+                VehicleHistory::onFahrerChange(
+                    $this->db,
+                    $this->id_fahrer,
+                    $name,
+                    $old['lkw'],
+                    $this->lkw,
+                    $old['chassi'],
+                    $this->chassi
+                );
+
+                // Push водителю — только если транспорт переназначил сотрудник
+                // (о собственных действиях водителя уведомлять не нужно).
+                if ($staff) {
+                    $changes = [];
+                    if (trim((string) $old['lkw']) !== trim((string) $this->lkw)) {
+                        $changes[] = $this->lkw !== '' ? "Грузовик: {$this->lkw}" : 'Грузовик снят';
+                    }
+                    if (trim((string) $old['chassi']) !== trim((string) $this->chassi)) {
+                        $changes[] = $this->chassi !== '' ? "Прицеп: {$this->chassi}" : 'Прицеп отцеплен';
+                    }
+                    if ($changes) {
+                        require_once __DIR__ . '/ExpoPush.php';
+                        ExpoPush::toFahrer($this->db, $this->id_fahrer, 'Ваш транспорт обновлён', implode(' · ', $changes));
+                    }
+                }
                 return ['status' => 200];
             }
             return ['status' => 400];
@@ -197,6 +309,10 @@
                 return ['status' => 403, 'error' => 'Доступ запрещён'];
             }
             if (!$id) return ['status' => 400, 'error' => 'ID_fahrer required'];
+
+            // Прежде чем удалить водителя — закрываем его активные интервалы
+            // в истории, чтобы машины не остались «занятыми» несуществующим водителем.
+            VehicleHistory::closeAllForFahrer($this->db, $id);
 
             $sql = 'DELETE FROM fahrer WHERE id_fahrer = :id_fahrer';
             $stmt = $this->db->prepare($sql);
@@ -226,14 +342,14 @@
             if (isset($data['id_fahrer'])) {
                 $this->id_fahrer = $data['id_fahrer'];
             }
+            if (isset($data['driver_code'])) {
+                $this->driver_code = trim($data['driver_code']);
+            }
             if (isset($data['name'])) {
                 $this->name = $data['name'];
             }
             if (isset($data['lastname'])) {
                 $this->lastname = $data['lastname'];
-            }
-            if (isset($data['email'])) {
-                $this->email = $data['email'];
             }
             if (isset($data['password'])) {
                 $this->password = $data['password'];

@@ -136,7 +136,7 @@ class Auth
 
         if ($row['subject_type'] === 'fahrer') {
             $stmt = $db->prepare(
-                'SELECT id_fahrer, name, lastname, email, phone, lkw, chassi
+                'SELECT id_fahrer, driver_code, name, lastname, phone, lkw, chassi
                  FROM fahrer WHERE id_fahrer = :id LIMIT 1'
             );
             $stmt->bindValue(':id', $row['subject_id']);
