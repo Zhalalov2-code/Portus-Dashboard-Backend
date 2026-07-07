@@ -47,6 +47,8 @@
                         return $this->fahrerLogin();
                     } elseif ($res1 === 'push_token') {
                         return $this->savePushToken();
+                    } elseif ($res1 === 'change_password') {
+                        return $this->changePassword();
                     } elseif ($res1 === null) {
                         $data = $this->getReqData();
                         $this->hydrateForm($data);
@@ -165,6 +167,41 @@
             $stmt->bindValue(':t', $token);
             $stmt->bindValue(':id', $self['id_fahrer']);
             $stmt->execute();
+            return ['status' => 200];
+        }
+
+        /**
+         * Смена собственного пароля водителем (POST /fahrer/change_password).
+         * Требует старый пароль. Тело: { old_password, new_password }.
+         */
+        function changePassword()
+        {
+            $self = Auth::currentFahrer();
+            if (!$self) {
+                return ['status' => 403, 'error' => 'Только для водителей'];
+            }
+            $data = $this->getReqData();
+            $old = (string) ($data['old_password'] ?? '');
+            $new = (string) ($data['new_password'] ?? '');
+            if ($old === '' || $new === '') {
+                return ['status' => 400, 'error' => 'Укажите старый и новый пароль'];
+            }
+            if (strlen($new) < 4) {
+                return ['status' => 400, 'error' => 'Новый пароль слишком короткий'];
+            }
+
+            $stmt = $this->db->prepare('SELECT id_fahrer, password FROM fahrer WHERE id_fahrer = :id LIMIT 1');
+            $stmt->bindValue(':id', $self['id_fahrer']);
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row || !$this->verifyPassword($old, $row)) {
+                return ['status' => 401, 'error' => 'Старый пароль неверен'];
+            }
+
+            $upd = $this->db->prepare('UPDATE fahrer SET password = :p WHERE id_fahrer = :id');
+            $upd->bindValue(':p', password_hash($new, PASSWORD_DEFAULT));
+            $upd->bindValue(':id', $self['id_fahrer']);
+            $upd->execute();
             return ['status' => 200];
         }
 

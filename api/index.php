@@ -242,6 +242,30 @@ if (count($route) <= 3) {
             $history = new VehicleHistory();
             $arr_json = $history->verifyMethod($method, $route);
             break;
+        case 'vehicle_documents':
+            include(__DIR__ . '/classes/classVehicleDocuments.php');
+
+            $docs = new VehicleDocuments();
+            $arr_json = $docs->verifyMethod($method, $route);
+            break;
+        case 'inspections':
+            include(__DIR__ . '/classes/classInspections.php');
+
+            $inspections = new Inspections();
+            $arr_json = $inspections->verifyMethod($method, $route);
+            break;
+        case 'fault_reports':
+            include(__DIR__ . '/classes/classFaultReports.php');
+
+            $faults = new FaultReports();
+            $arr_json = $faults->verifyMethod($method, $route);
+            break;
+        case 'detach_locations':
+            include(__DIR__ . '/classes/classDetachLocations.php');
+
+            $detachLoc = new DetachLocations();
+            $arr_json = $detachLoc->verifyMethod($method, $route);
+            break;
         default:
             http_response_code(404);
             $arr_json = ['status' => 404, 'error' => 'Маршрут не найден'];
@@ -264,6 +288,9 @@ if (in_array($method, ['POST', 'PUT', 'DELETE'], true) && is_array($arr_json)) {
             'departments' => 'department',
             'users' => 'user',
             'fahrer' => 'fahrer',
+            'vehicle_documents' => 'vehicle_document',
+            'fault_reports' => 'fault',
+            'inspections' => 'inspection',
         ];
         $routeKey = $route[0] ?? '';
         $sub = $route[1] ?? '';
