@@ -20,6 +20,7 @@ class Chassi
         'chassi_nummer',
         'tuf',
         'esp',
+        'notizen',
         'adr',
         'a_schild',
         'achse1_links',

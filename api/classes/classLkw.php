@@ -22,6 +22,7 @@ class Lkw
         'tuf',
         'esp',
         'lkw_nummer',
+        'notizen',
         'adr',
         'a_schild',
         'feuerloescher',
