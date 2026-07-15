@@ -6,7 +6,7 @@ require_once __DIR__ . '/classes/Auth.php';
 // --- CORS ---
 // В проде ALLOWED_ORIGIN должен быть точным адресом фронтенда, а не "*",
 // иначе API открыт для запросов с любого сайта.
-$allowedOrigin = getenv('ALLOWED_ORIGIN') ?: 'https://portus-management.netlify.app';
+$allowedOrigin = portus_env('ALLOWED_ORIGIN') ?: 'https://portus-management.netlify.app';
 header('Access-Control-Allow-Origin: ' . $allowedOrigin);
 header('Vary: Origin');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
@@ -24,7 +24,7 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 
-$isProduction = getenv('APP_ENV') !== 'development';
+$isProduction = portus_env('APP_ENV') !== 'development';
 error_reporting(E_ALL);
 ini_set('display_errors', $isProduction ? '0' : '1');
 
@@ -266,6 +266,12 @@ if (count($route) <= 3) {
             $detachLoc = new DetachLocations();
             $arr_json = $detachLoc->verifyMethod($method, $route);
             break;
+        case 'inventory':
+            include(__DIR__ . '/classes/classInventory.php');
+
+            $inventory = new Inventory($_REQUEST);
+            $arr_json = $inventory->verifyMethod($method, $route);
+            break;
         default:
             http_response_code(404);
             $arr_json = ['status' => 404, 'error' => 'Маршрут не найден'];
@@ -291,6 +297,7 @@ if (in_array($method, ['POST', 'PUT', 'DELETE'], true) && is_array($arr_json)) {
             'vehicle_documents' => 'vehicle_document',
             'fault_reports' => 'fault',
             'inspections' => 'inspection',
+            'inventory' => 'inventory',
         ];
         $routeKey = $route[0] ?? '';
         $sub = $route[1] ?? '';
