@@ -1,0 +1,206 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                   NOTIZEN FEATURE - ALL CHANGES                            ║
+║                        Ready for Production                                ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+📍 DATE: 2026-07-13
+📍 FEATURE: Notizen (Notes) for LKW and Chassi Vehicles
+📍 STATUS: ✅ READY FOR PRODUCTION
+
+════════════════════════════════════════════════════════════════════════════
+
+🗄️  DATABASE CHANGES (1 migration)
+════════════════════════════════════════════════════════════════════════════
+
+✅ database/add_notizen_column.sql (NEW)
+   └─ Adds TEXT column "notizen" to both lkw and chassi tables
+   └─ Default: NULL
+   └─ Comment: "Заметки про забронированные сервисные термины"
+
+✅ database/add_notizen_column.sql (NEW)
+   └─ Adds TEXT column "notizen" to both lkw and chassi tables
+
+────────────────────────────────────────────────────────────────────────────
+
+🔧 BACKEND CHANGES (PHP - 2 files modified)
+════════════════════════════════════════════════════════════════════════════
+
+✅ api/classes/classLkw.php (MODIFIED)
+   └─ Added 'notizen' to ALLOWED array (line ~25)
+   └─ Effect: API now accepts and saves notizen field
+   └─ No other changes
+   
+✅ api/classes/classChassi.php (MODIFIED)
+   └─ Added 'notizen' to ALLOWED array (line ~23)
+   └─ Effect: API now accepts and saves notizen field
+   └─ No other changes
+
+────────────────────────────────────────────────────────────────────────────
+
+🎨 FRONTEND CHANGES (React/TypeScript - 8 files)
+════════════════════════════════════════════════════════════════════════════
+
+NEW FILES (2):
+  ✅ src/components/NotizModal.tsx
+     └─ Modal dialog for editing notizen
+     └─ Features: Save, Cancel buttons, i18n translations
+     └─ Size: ~90 lines
+
+  ✅ src/css/notizModal.css
+     └─ Styling for modal and table cells
+     └─ Responsive design (mobile-optimized)
+     └─ Animations and transitions
+     └─ Size: ~150 lines
+
+MODIFIED FILES (6):
+  ✅ src/store/api/lkwApi.ts
+     └─ Added: notizen?: string to Lkw interface
+     
+  ✅ src/store/api/chassiApi.ts
+     └─ Added: notizen?: string to Chassi interface
+     
+  ✅ src/pages/lkwList.tsx
+     └─ Added: NotizModal component import & usage
+     └─ Added: Notizen column to table
+     └─ Added: Click handler to open modal
+     └─ Removed: Notizen from VehicleModal
+     
+  ✅ src/pages/chassiListe.tsx
+     └─ Added: NotizModal component import & usage
+     └─ Added: Notizen column to table
+     └─ Added: Click handler to open modal
+     └─ Removed: Notizen from VehicleModal
+     
+  ✅ src/components/VehicleModal.tsx
+     └─ Removed: Notizen section (now separate modal)
+     └─ Removed: Related imports and functions
+     
+  ✅ src/css/status.css
+     └─ Removed: Old inline-edit CSS rules
+
+════════════════════════════════════════════════════════════════════════════
+
+📱 MOBILE APP CHANGES
+════════════════════════════════════════════════════════════════════════════
+
+ℹ️  No notizen-specific changes required
+    (Mobile app has other i18n/localization changes, but notizen is
+     only for admin web dashboard)
+
+════════════════════════════════════════════════════════════════════════════
+
+📊 SUMMARY BY PROJECT
+════════════════════════════════════════════════════════════════════════════
+
+Backend (portusApp1):
+  • Files modified: 2 (PHP classes)
+  • Files added: 2 (SQL migrations)
+  • Total changes: 4 files
+  • Breaking changes: NO ❌
+
+Web Dashboard (New-Portus-Dasboard):
+  • Files added: 2 (Component + CSS)
+  • Files modified: 6 (APIs, pages, modal)
+  • Total changes: 8 files
+  • Breaking changes: NO ❌
+
+Mobile App (DriverPortal):
+  • Notizen changes: 0
+  • Total changes: Other (unrelated)
+  • Breaking changes: NO ❌
+
+════════════════════════════════════════════════════════════════════════════
+
+🎯 FEATURE OVERVIEW
+════════════════════════════════════════════════════════════════════════════
+
+What Users Can Do:
+  1. Open LKW Liste or Chassi Liste
+  2. Click on any "Notizen" cell
+  3. Modal dialog opens
+  4. Type notes (e.g., "TÜV: 15.03.2024, SP: 20.04.2024")
+  5. Click "Speichern" (Save)
+  6. Text appears in table cell
+  7. Notes persist after page refresh
+
+Technical Details:
+  • Data stored in: lkw.notizen, chassi.notizen (TEXT columns)
+  • API endpoint: PUT /api/lkw, PUT /api/chassi
+  • Frontend state management: React NotizModal component
+  • Type safety: TypeScript interfaces updated
+  • Internationalization: Ready for i18n
+
+════════════════════════════════════════════════════════════════════════════
+
+⚠️  CRITICAL DEPLOYMENT STEPS
+════════════════════════════════════════════════════════════════════════════
+
+1️⃣  DATABASE MIGRATION (MUST DO FIRST!)
+    Execute: mysql -u root -p db < database/add_notizen_column.sql
+
+2️⃣  BACKEND DEPLOYMENT
+    Upload: api/classes/classLkw.php
+    Upload: api/classes/classChassi.php
+
+3️⃣  FRONTEND DEPLOYMENT
+    Build:  npm run build
+    Upload: build/ directory contents
+
+4️⃣  VERIFICATION
+    Test notizen feature in both tables
+    Check Network tab for API calls
+
+════════════════════════════════════════════════════════════════════════════
+
+📚 DOCUMENTATION FILES
+════════════════════════════════════════════════════════════════════════════
+
+DEPLOY_README.md ..................... Master index (START HERE)
+QUICK_DEPLOY.md ...................... 5-step quick guide
+PRODUCTION_CHECKLIST.md .............. Detailed checklist
+DEPLOYMENT_SUMMARY.md ................ Complete overview
+add_notizen_column.sql ............... Migration SQL
+GIT_PUSH_COMMANDS.sh ................. Git automation
+
+════════════════════════════════════════════════════════════════════════════
+
+✅ DEPLOYMENT CHECKLIST
+════════════════════════════════════════════════════════════════════════════
+
+Before deployment:
+  [ ] Read QUICK_DEPLOY.md
+  [ ] Tested locally - works
+  [ ] Database backup taken
+  [ ] Team informed
+  [ ] Maintenance window scheduled (if needed)
+
+During deployment:
+  [ ] Apply database migration
+  [ ] Upload backend files
+  [ ] Build and upload frontend
+  [ ] Clear cache
+  [ ] Restart services (if needed)
+
+After deployment:
+  [ ] Test notizen feature
+  [ ] Check logs for errors
+  [ ] Verify API calls in Network tab
+  [ ] Monitor for 24 hours
+
+════════════════════════════════════════════════════════════════════════════
+
+🚀 READY TO DEPLOY!
+════════════════════════════════════════════════════════════════════════════
+
+All changes documented ✅
+All files prepared ✅
+Tested locally ✅
+Ready for production ✅
+
+Start with: DEPLOY_README.md or QUICK_DEPLOY.md
+
+════════════════════════════════════════════════════════════════════════════
+Last Updated: 2026-07-13
+Status: READY FOR PRODUCTION ✅
+Risk Level: LOW (single new column, no breaking changes)
+════════════════════════════════════════════════════════════════════════════

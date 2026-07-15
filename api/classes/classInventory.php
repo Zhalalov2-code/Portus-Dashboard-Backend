@@ -31,6 +31,7 @@ class Inventory
     const RECEIPT = 'RECEIPT';
     const ADJUSTMENT_PLUS = 'ADJUSTMENT_PLUS';
     const ADJUSTMENT_MINUS = 'ADJUSTMENT_MINUS';
+    const INITIAL_BALANCE = 'INITIAL_BALANCE';
 
     const VEHICLE_TYPES = ['lkw', 'chassi'];
 
@@ -85,7 +86,9 @@ class Inventory
             case 'adjust':
                 return $method === 'POST' ? $this->adjust() : ['status' => 405];
             case 'transactions':
-                return $method === 'GET' ? $this->getTransactions() : ['status' => 405];
+                if ($method === 'GET') return $this->getTransactions();
+                if ($method === 'DELETE' && $id) return $this->deleteTransaction($id);
+                return ['status' => 405];
             case 'categories':
                 return $method === 'GET' ? $this->getCategories() : ['status' => 405];
             case 'units':
@@ -103,10 +106,11 @@ class Inventory
             case 'POST':
                 return $this->createItem();
             case 'PUT':
-                if (!$id) {
-                    return ['status' => 400, 'error' => 'Artikel-ID ist erforderlich'];
-                }
+                if (!$id) return ['status' => 400, 'error' => 'Artikel-ID ist erforderlich'];
                 return $this->updateItem($id);
+            case 'DELETE':
+                if (!$id) return ['status' => 400, 'error' => 'Artikel-ID ist erforderlich'];
+                return $this->deleteItem($id);
             default:
                 return ['status' => 405];
         }
@@ -278,6 +282,25 @@ class Inventory
         $transactions = array_map([$this, 'castTransaction'], $stmt->fetchAll(PDO::FETCH_ASSOC));
 
         return ['status' => 200, 'data' => ['item' => $this->castItem($item), 'transactions' => $transactions]];
+    }
+
+    function deleteItem($id)
+    {
+        $access = $this->requireAccess();
+        if ($access === null) return ['status' => 401, 'error' => 'Nicht autorisiert'];
+        if ($access === false) return ['status' => 403, 'error' => 'Kein Zugriff auf das Lager'];
+
+        $item = $this->fetchItem($id);
+        if (!$item) return ['status' => 404, 'error' => 'Artikel nicht gefunden'];
+
+        if ($this->itemHasTransactions($id)) {
+            return ['status' => 400, 'error' => 'Artikel mit Buchungen kann nicht gelöscht werden. Deaktivieren Sie ihn stattdessen.'];
+        }
+
+        $stmt = $this->db->prepare('DELETE FROM inventory_items WHERE id = :id');
+        $stmt->bindValue(':id', $id);
+        $stmt->execute();
+        return ['status' => 200, 'success' => true];
     }
 
     function createItem()
@@ -666,6 +689,57 @@ class Inventory
     }
 
     // ----------------------------- Журнал -----------------------------
+
+    function deleteTransaction($id)
+    {
+        $access = $this->requireAccess();
+        if ($access === null) return ['status' => 401, 'error' => 'Nicht autorisiert'];
+        if ($access === false) return ['status' => 403, 'error' => 'Kein Zugriff auf das Lager'];
+
+        $stmt = $this->db->prepare('SELECT * FROM inventory_transactions WHERE id = :id LIMIT 1');
+        $stmt->bindValue(':id', $id);
+        $stmt->execute();
+        $tx = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$tx) return ['status' => 404, 'error' => 'Transaktion nicht gefunden'];
+
+        if ($tx['transaction_type'] === self::INITIAL_BALANCE) {
+            return ['status' => 400, 'error' => 'INITIAL_BALANCE kann nicht gelöscht werden'];
+        }
+
+        try {
+            $this->db->beginTransaction();
+
+            $itemStmt = $this->db->prepare('SELECT id, current_quantity FROM inventory_items WHERE id = :id FOR UPDATE');
+            $itemStmt->bindValue(':id', $tx['item_id']);
+            $itemStmt->execute();
+            $item = $itemStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$item) {
+                $this->db->rollBack();
+                return ['status' => 404, 'error' => 'Zugehöriger Artikel nicht gefunden'];
+            }
+
+            $qty = (float) $tx['quantity'];
+            $type = $tx['transaction_type'];
+            $delta = in_array($type, [self::RECEIPT, self::ADJUSTMENT_PLUS], true) ? -$qty : $qty;
+            $newQty = round((float) $item['current_quantity'] + $delta, 3);
+
+            $del = $this->db->prepare('DELETE FROM inventory_transactions WHERE id = :id');
+            $del->bindValue(':id', $id);
+            $del->execute();
+
+            $upd = $this->db->prepare('UPDATE inventory_items SET current_quantity = :q, updated_at = NOW() WHERE id = :id');
+            $upd->bindValue(':q', $newQty);
+            $upd->bindValue(':id', $tx['item_id']);
+            $upd->execute();
+
+            $this->db->commit();
+            return ['status' => 200, 'success' => true];
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            error_log('Delete transaction failed: ' . $e->getMessage());
+            return ['status' => 500, 'error' => 'Löschen der Transaktion fehlgeschlagen'];
+        }
+    }
 
     function getTransactions()
     {
