@@ -11,12 +11,10 @@ class DB{
 
     public static function getInstance(){
         if (!isset(self::$instance)){
-            // portus_env(): getenv() с fallback на $_ENV/$_SERVER — защищает от
-            // гонки putenv/getenv на многопоточном Apache под Windows (см. env.php).
-            $host = portus_env('DB_HOST') ?: 'localhost';
-            $name = portus_env('DB_NAME') ?: 'portusapp1';
-            $user = portus_env('DB_USER', false);
-            $pass = portus_env('DB_PASS', false);
+            $host = getenv('DB_HOST') ?: 'localhost';
+            $name = getenv('DB_NAME') ?: 'portusapp1';
+            $user = getenv('DB_USER');
+            $pass = getenv('DB_PASS');
 
             if ($user === false || $pass === false) {
                 throw new \RuntimeException('DB_USER и DB_PASS обязательны — создайте файл .env на основе .env.example');

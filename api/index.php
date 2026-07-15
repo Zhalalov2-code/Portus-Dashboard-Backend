@@ -6,7 +6,7 @@ require_once __DIR__ . '/classes/Auth.php';
 // --- CORS ---
 // В проде ALLOWED_ORIGIN должен быть точным адресом фронтенда, а не "*",
 // иначе API открыт для запросов с любого сайта.
-$allowedOrigin = portus_env('ALLOWED_ORIGIN') ?: 'https://portus-management.netlify.app';
+$allowedOrigin = getenv('ALLOWED_ORIGIN') ?: 'https://portus-management.netlify.app';
 header('Access-Control-Allow-Origin: ' . $allowedOrigin);
 header('Vary: Origin');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
@@ -24,7 +24,7 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 
-$isProduction = portus_env('APP_ENV') !== 'development';
+$isProduction = getenv('APP_ENV') !== 'development';
 error_reporting(E_ALL);
 ini_set('display_errors', $isProduction ? '0' : '1');
 
