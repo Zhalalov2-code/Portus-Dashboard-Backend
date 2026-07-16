@@ -86,8 +86,10 @@ class Inventory
             case 'adjust':
                 return $method === 'POST' ? $this->adjust() : ['status' => 405];
             case 'transactions':
-                if ($method === 'GET') return $this->getTransactions();
-                if ($method === 'DELETE' && $id) return $this->deleteTransaction($id);
+                if ($method === 'GET')
+                    return $this->getTransactions();
+                if ($method === 'DELETE' && $id)
+                    return $this->deleteTransaction($id);
                 return ['status' => 405];
             case 'categories':
                 return $method === 'GET' ? $this->getCategories() : ['status' => 405];
@@ -106,10 +108,12 @@ class Inventory
             case 'POST':
                 return $this->createItem();
             case 'PUT':
-                if (!$id) return ['status' => 400, 'error' => 'Artikel-ID ist erforderlich'];
+                if (!$id)
+                    return ['status' => 400, 'error' => 'Artikel-ID ist erforderlich'];
                 return $this->updateItem($id);
             case 'DELETE':
-                if (!$id) return ['status' => 400, 'error' => 'Artikel-ID ist erforderlich'];
+                if (!$id)
+                    return ['status' => 400, 'error' => 'Artikel-ID ist erforderlich'];
                 return $this->deleteItem($id);
             default:
                 return ['status' => 405];
@@ -129,7 +133,7 @@ class Inventory
             return false;
         }
         $role = strtolower(trim($user['role'] ?? ''));
-        if ($role === 'admin' || $role === 'pruefer') {
+        if ($role === 'admin' || $role === 'pruefer' || $role === 'department_head') {
             return true;
         }
         if (empty($user['department_id'])) {
@@ -231,8 +235,8 @@ class Inventory
                 FROM inventory_items i
                 JOIN inventory_categories c ON c.id = i.category_id
                 JOIN inventory_units u ON u.id = i.unit_id'
-                . $whereSql .
-                ' ORDER BY i.name ASC LIMIT :limit OFFSET :offset';
+            . $whereSql .
+            ' ORDER BY i.name ASC LIMIT :limit OFFSET :offset';
 
         $stmt = $this->db->prepare($sql);
         foreach ($params as $k => $v) {
@@ -287,11 +291,14 @@ class Inventory
     function deleteItem($id)
     {
         $access = $this->requireAccess();
-        if ($access === null) return ['status' => 401, 'error' => 'Nicht autorisiert'];
-        if ($access === false) return ['status' => 403, 'error' => 'Kein Zugriff auf das Lager'];
+        if ($access === null)
+            return ['status' => 401, 'error' => 'Nicht autorisiert'];
+        if ($access === false)
+            return ['status' => 403, 'error' => 'Kein Zugriff auf das Lager'];
 
         $item = $this->fetchItem($id);
-        if (!$item) return ['status' => 404, 'error' => 'Artikel nicht gefunden'];
+        if (!$item)
+            return ['status' => 404, 'error' => 'Artikel nicht gefunden'];
 
         if ($this->itemHasTransactions($id)) {
             return ['status' => 400, 'error' => 'Artikel mit Buchungen kann nicht gelöscht werden. Deaktivieren Sie ihn stattdessen.'];
@@ -693,14 +700,17 @@ class Inventory
     function deleteTransaction($id)
     {
         $access = $this->requireAccess();
-        if ($access === null) return ['status' => 401, 'error' => 'Nicht autorisiert'];
-        if ($access === false) return ['status' => 403, 'error' => 'Kein Zugriff auf das Lager'];
+        if ($access === null)
+            return ['status' => 401, 'error' => 'Nicht autorisiert'];
+        if ($access === false)
+            return ['status' => 403, 'error' => 'Kein Zugriff auf das Lager'];
 
         $stmt = $this->db->prepare('SELECT * FROM inventory_transactions WHERE id = :id LIMIT 1');
         $stmt->bindValue(':id', $id);
         $stmt->execute();
         $tx = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$tx) return ['status' => 404, 'error' => 'Transaktion nicht gefunden'];
+        if (!$tx)
+            return ['status' => 404, 'error' => 'Transaktion nicht gefunden'];
 
         if ($tx['transaction_type'] === self::INITIAL_BALANCE) {
             return ['status' => 400, 'error' => 'INITIAL_BALANCE kann nicht gelöscht werden'];
@@ -735,7 +745,8 @@ class Inventory
             $this->db->commit();
             return ['status' => 200, 'success' => true];
         } catch (\Throwable $e) {
-            if ($this->db->inTransaction()) $this->db->rollBack();
+            if ($this->db->inTransaction())
+                $this->db->rollBack();
             error_log('Delete transaction failed: ' . $e->getMessage());
             return ['status' => 500, 'error' => 'Löschen der Transaktion fehlgeschlagen'];
         }
