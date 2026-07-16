@@ -69,8 +69,32 @@ class Lkw
 
     function getLkw()
     {
-        $sql = 'SELECT * FROM lkw';
+        $where = [];
+        $params = [];
+        $search = $_GET['search'] ?? null;
+        if ($search !== null && $search !== '') {
+            $where[] = 'lkw_nummer LIKE :search';
+            $params[':search'] = "%$search%";
+        }
+        $tuf = $_GET['tuf_status'] ?? null;
+        if ($tuf) {
+            if ($tuf === 'critical') { $where[] = 'tuf < CURDATE()'; }
+            elseif ($tuf === 'warning') { $where[] = 'tuf BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 1 MONTH)'; }
+            elseif ($tuf === 'ok') { $where[] = '(tuf IS NULL OR tuf > DATE_ADD(CURDATE(), INTERVAL 1 MONTH))'; }
+        }
+        $esp = $_GET['sp_status'] ?? null;
+        if ($esp) {
+            if ($esp === 'critical') { $where[] = 'esp < CURDATE()'; }
+            elseif ($esp === 'warning') { $where[] = 'esp BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 1 MONTH)'; }
+            elseif ($esp === 'ok') { $where[] = '(esp IS NULL OR esp > DATE_ADD(CURDATE(), INTERVAL 1 MONTH))'; }
+        }
+        $notizen = $_GET['notizen'] ?? null;
+        if ($notizen === 'has') { $where[] = '(notizen IS NOT NULL AND notizen != \'\')'; }
+        elseif ($notizen === 'no') { $where[] = '(notizen IS NULL OR notizen = \'\')'; }
+
+        $sql = 'SELECT * FROM lkw' . ($where ? ' WHERE ' . implode(' AND ', $where) : '');
         $stmt = $this->db->prepare($sql);
+        foreach ($params as $k => $v) $stmt->bindValue($k, $v);
         $stmt->execute();
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
         // Булевы поля приводим к int, чтобы фронт получал 0/1, а не "0"/"1".

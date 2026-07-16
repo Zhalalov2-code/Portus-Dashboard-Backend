@@ -299,19 +299,20 @@ interface User {
 
 ### LKW (Truck) and Chassi (Trailer) Endpoints
 
-**GET `/lkw`** — List all trucks
+**GET `/lkw[?search=&tuf_status=&sp_status=&notizen=]`** — List trucks
+**GET `/chassi[?search=&tuf_status=&sp_status=&notizen=]`** — List trailers
 ```json
 {
-  "response": [ /* Lkw[] */ ]
+  "response": [ /* Array */ ]
 }
 ```
-
-**GET `/chassi`** — List all trailers
-```json
-{
-  "response": [ /* Chassi[] */ ]
-}
-```
+**Filters:**
+| Param | Values | Logic |
+|-------|--------|-------|
+| search | string | `nummer LIKE '%val%'` |
+| tuf_status | ok/warning/critical | ok: future >1mo; warning: ±1mo; critical: past |
+| sp_status | ok/warning/critical | same for `esp` |
+| notizen | has/no | `IS NOT NULL` / `IS NULL OR ''` |
 
 **GET `/lkw/{id}`** — Get truck details
 **GET `/chassi/{id}`** — Get trailer details

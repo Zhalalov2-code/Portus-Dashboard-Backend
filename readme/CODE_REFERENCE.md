@@ -239,13 +239,13 @@ Fahrer (Drivers):
   DELETE /fahrer/{id}             # Delete driver
 
 LKW (Trucks):
-  GET    /lkw                     # List trucks
+  GET    /lkw[?search=&tuf_status=&sp_status=&notizen=]  # List trucks with filters
   POST   /lkw                     # Create truck
   PUT    /lkw/{id}                # Update truck
   DELETE /lkw/{id}                # Delete truck
 
 Chassi (Trailers):
-  GET    /chassi                  # List trailers
+  GET    /chassi[?search=&tuf_status=&sp_status=&notizen=]  # List trailers with filters
   POST   /chassi                  # Create trailer
   PUT    /chassi/{id}             # Update trailer
   DELETE /chassi/{id}             # Delete trailer
