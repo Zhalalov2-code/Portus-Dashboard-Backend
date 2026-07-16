@@ -1,5 +1,86 @@
 ╔════════════════════════════════════════════════════════════════════════════╗
-║                   NOTIZEN FEATURE - ALL CHANGES                            ║
+║                   SERVICE FIELD - ALL CHANGES                               ║
+║                        Ready for Production                                ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+📍 DATE: 2026-07-16
+📍 FEATURE: Service flag (TINYINT 0/1) for LKW and Chassi
+📍 STATUS: ✅ READY FOR PRODUCTION
+
+════════════════════════════════════════════════════════════════════════════
+
+🗄️  DATABASE CHANGES (1 migration)
+════════════════════════════════════════════════════════════════════════════
+
+✅ database/add_service_column.sql (NEW)
+   └─ Adds TINYINT(1) column "service" to both lkw and chassi tables
+   └─ Default: 0
+   └─ Values: 0 or 1
+
+────────────────────────────────────────────────────────────────────────────
+
+🔧 BACKEND CHANGES (PHP - 2 files modified)
+════════════════════════════════════════════════════════════════════════════
+
+✅ api/classes/classLkw.php (MODIFIED)
+   └─ Added 'service' to ALLOWED array
+   └─ Added 'service' => 0 to POST defaults
+   └─ Added (int) cast for service in GET response
+   └─ Added 'service' to sanitize boolean check (0/1)
+
+✅ api/classes/classChassi.php (MODIFIED)
+   └─ Added 'service' to ALLOWED array
+   └─ Added 'service' => 0 to POST defaults
+   └─ Added (int) cast for service in GET response
+   └─ Added 'service' to sanitize boolean check (0/1)
+
+────────────────────────────────────────────────────────────────────────────
+
+📡 WEBSOCKET (No changes needed)
+════════════════════════════════════════════════════════════════════════════
+
+ℹ️  lkw and chassi are already in entityMap (api/index.php)
+    └─ PUT /lkw/{id} → Realtime::entityChanged('lkw') → WebSocket broadcast
+    └─ PUT /chassi/{id} → Realtime::entityChanged('chassi') → WebSocket broadcast
+    └─ Field "service" changes trigger realtime events automatically
+
+────────────────────────────────────────────────────────────────────────────
+
+📊 API CONTRACT
+════════════════════════════════════════════════════════════════════════════
+
+Field: service
+  Type: TINYINT(1) — returned as int (0 or 1)
+  Default: 0
+  Accepted in: POST /lkw, PUT /lkw/{id}, POST /chassi, PUT /chassi/{id}
+  Returned in: GET /lkw, GET /chassi
+
+Example request (PUT):
+  PUT /lkw/12
+  { "id_lkw": 12, "service": 1 }
+
+Example response (GET):
+  { "id_lkw": 12, "lkw_nummer": "ABC-123", ..., "service": 1 }
+
+────────────────────────────────────────────────────────────────────────────
+
+✅ DEPLOYMENT STEPS
+════════════════════════════════════════════════════════════════════════════
+
+1️⃣  DATABASE MIGRATION (MUST DO FIRST!)
+    Execute: mysql -u root -p portusapp1 < database/add_service_column.sql
+
+2️⃣  BACKEND DEPLOYMENT
+    Upload: api/classes/classLkw.php
+    Upload: api/classes/classChassi.php
+
+3️⃣  VERIFICATION
+    Test: curl -X PUT http://localhost/lkw/1 -d '{"service":1}'
+    Test: curl http://localhost/lkw/1 (check service field in response)
+
+════════════════════════════════════════════════════════════════════════════
+
+⚠️  NOTIZEN FEATURE - ALL CHANGES                            ║
 ║                        Ready for Production                                ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 

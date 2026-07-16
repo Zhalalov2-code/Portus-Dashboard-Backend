@@ -234,7 +234,7 @@ lkw (
   id_lkw, lkw_nummer, tuf, esp, adr, a_schild,
   achse_1_links, achse_1_rechts, achse_2_links, achse_2_rechts,
   feuerloescher_1, feuerloescher_2, warndreieck, verbandkasten,
-  kranken_trage, notizen,
+  kranken_trage, notizen, service,
   status, created_at, updated_at
 )
 
@@ -243,7 +243,7 @@ chassi (
   id_chassi, chassi_nummer, tuf, esp, adr, a_schild,
   achse_1_links, achse_1_rechts, achse_2_links, achse_2_rechts,
   feuerloescher_1, feuerloescher_2,
-  notizen,
+  notizen, service,
   created_at, updated_at
 )
 

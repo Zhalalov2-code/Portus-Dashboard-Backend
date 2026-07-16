@@ -49,6 +49,7 @@ interface Lkw {
   verbandkasten: string;        // First aid kit
   kranken_trage: string;        // Stretcher
   notizen: string | null;       // Notes
+  service: number;              // Service flag (0 or 1)
   status: string;
   created_at: string;
   updated_at: string;
@@ -71,6 +72,7 @@ interface Chassi {
   feuerloescher_1: string;      // Fire extinguisher 1
   feuerloescher_2: string;      // Fire extinguisher 2
   notizen: string | null;       // Notes
+  service: number;              // Service flag (0 or 1)
   created_at: string;
   updated_at: string;
 }

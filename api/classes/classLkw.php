@@ -32,6 +32,7 @@ class Lkw
         'achse2_rechts',
         'achse3_links',
         'achse3_rechts',
+        'service',
     ];
 
     public function __construct($id_lkw = null, $tuf = null, $esp = null, $lkw_nummer = '')
@@ -102,6 +103,7 @@ class Lkw
             $row['adr'] = (int) ($row['adr'] ?? 0);
             $row['a_schild'] = (int) ($row['a_schild'] ?? 0);
             $row['feuerloescher'] = (int) ($row['feuerloescher'] ?? 0);
+            $row['service'] = (int) ($row['service'] ?? 0);
         }
         return $result;
     }
@@ -128,6 +130,7 @@ class Lkw
             'adr' => 0,
             'a_schild' => 0,
             'feuerloescher' => 0,
+            'service' => 0,
             'achse1_links' => 'OK',
             'achse1_rechts' => 'OK',
             'achse2_links' => 'OK',
@@ -229,7 +232,7 @@ class Lkw
     // только к допустимым значениям 'OK' / 'Auf Ersatz'.
     private function sanitize($col, $value)
     {
-        if ($col === 'adr' || $col === 'a_schild' || $col === 'feuerloescher') {
+        if ($col === 'adr' || $col === 'a_schild' || $col === 'feuerloescher' || $col === 'service') {
             return ($value === true || $value === 1 || $value === '1' || $value === 'true') ? 1 : 0;
         }
         if (strpos($col, 'achse') === 0) {

@@ -29,6 +29,7 @@ class Chassi
         'achse2_rechts',
         'achse3_links',
         'achse3_rechts',
+        'service',
     ];
 
     function __construct($id_chassi = null, $chassi_nummer = '', $tuf = '', $esp = '')
@@ -98,6 +99,7 @@ class Chassi
         foreach ($result as &$row) {
             $row['adr'] = (int) ($row['adr'] ?? 0);
             $row['a_schild'] = (int) ($row['a_schild'] ?? 0);
+            $row['service'] = (int) ($row['service'] ?? 0);
         }
         return $result;
     }
@@ -122,6 +124,7 @@ class Chassi
             'esp' => null,
             'adr' => 0,
             'a_schild' => 0,
+            'service' => 0,
             'achse1_links' => 'OK',
             'achse1_rechts' => 'OK',
             'achse2_links' => 'OK',
@@ -232,7 +235,7 @@ class Chassi
     // Булевы поля -> 0/1, статусы осей -> только 'OK' / 'Auf Ersatz'.
     private function sanitize($col, $value)
     {
-        if ($col === 'adr' || $col === 'a_schild') {
+        if ($col === 'adr' || $col === 'a_schild' || $col === 'service') {
             return ($value === true || $value === 1 || $value === '1' || $value === 'true') ? 1 : 0;
         }
         if (strpos($col, 'achse') === 0) {
