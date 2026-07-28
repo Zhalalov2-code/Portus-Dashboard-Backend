@@ -102,6 +102,18 @@ class Auth
         $stmt->bindValue(':expires_at', $expiresAt);
         $stmt->execute();
 
+        // Оппортунистическая чистка: при каждом входе удаляем просроченные токены
+        // этого же субъекта. Дешёвый DELETE по (subject_type, subject_id) —
+        // страховка на случай, если ночной cron (cleanup_tokens.php) не отработает,
+        // чтобы таблица auth_tokens не копила мёртвые строки.
+        $cleanup = $db->prepare(
+            'DELETE FROM auth_tokens
+             WHERE subject_type = :subject_type AND subject_id = :subject_id AND expires_at < NOW()'
+        );
+        $cleanup->bindValue(':subject_type', $subjectType);
+        $cleanup->bindValue(':subject_id', $subjectId);
+        $cleanup->execute();
+
         return $token;
     }
 
