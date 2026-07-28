@@ -1,3 +1,9 @@
-*/15 * * * * www-data php /var/www/html/cron/check_deadlines.php >> /var/www/html/logs/cron.log 2>&1
-0 2 * * * www-data php /var/www/html/cron/cleanup_tokens.php >> /var/www/html/logs/cron.log 2>&1
-0 3 * * * www-data php /var/www/html/cron/cleanup_old_vacations.php >> /var/www/html/logs/cron.log 2>&1
+# В образе php:8.2-apache бинарник php лежит в /usr/local/bin, которого нет
+# в урезанном PATH cron'а. Без этой строки задачи падают с "php: command not
+# found" (по расписанию), хотя вручную через docker exec всё работает.
+PATH=/usr/local/bin:/usr/bin:/bin
+SHELL=/bin/bash
+
+*/15 * * * * www-data /usr/local/bin/php /var/www/html/cron/check_deadlines.php >> /var/www/html/logs/cron.log 2>&1
+0 2 * * * www-data /usr/local/bin/php /var/www/html/cron/cleanup_tokens.php >> /var/www/html/logs/cron.log 2>&1
+0 3 * * * www-data /usr/local/bin/php /var/www/html/cron/cleanup_old_vacations.php >> /var/www/html/logs/cron.log 2>&1
