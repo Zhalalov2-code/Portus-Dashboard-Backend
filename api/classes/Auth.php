@@ -17,6 +17,17 @@ require_once __DIR__ . '/../config/db.php';
  */
 class Auth
 {
+    /**
+     * Срок жизни токена сотрудника (users) при бездействии, в секундах.
+     * 4 часа: токен продлевается на каждый запрос (скользящее окно в resolve()),
+     * поэтому у активного пользователя сессия не обрывается, а брошенная/закрытая
+     * вкладка теряет валидный токен максимум через 4 часа тишины.
+     *
+     * Водителей (fahrer) это НЕ касается — их токены живут по старому 7-дневному
+     * абсолютному сроку (мобильное приложение), см. issueToken()/resolve().
+     */
+    const USER_INACTIVITY_TTL = 14400;
+
     /** @var array|null Текущий авторизованный сотрудник (таблица users), без пароля */
     private static $currentUser = null;
 
@@ -95,6 +106,19 @@ class Auth
     }
 
     /**
+     * Сдвигает срок жизни токена вперёд (скользящее окно бездействия).
+     * Вызывается из resolve() на каждый успешный запрос.
+     */
+    public static function touchExpiry(PDO $db, $token, $ttlSeconds)
+    {
+        $expiresAt = date('Y-m-d H:i:s', time() + $ttlSeconds);
+        $stmt = $db->prepare('UPDATE auth_tokens SET expires_at = :expires_at WHERE token = :token');
+        $stmt->bindValue(':expires_at', $expiresAt);
+        $stmt->bindValue(':token', $token);
+        $stmt->execute();
+    }
+
+    /**
      * Проверяет токен, подтягивает связанную сущность и кладёт её
      * в Auth::currentUser()/currentFahrer(). Возвращает массив
      * ['type' => 'user'|'fahrer', 'data' => [...]] или null, если токен
@@ -127,6 +151,12 @@ class Auth
             if (!$user) {
                 return null;
             }
+
+            // Скользящее окно бездействия: пока сотрудник делает запросы, срок
+            // жизни токена сдвигается вперёд на USER_INACTIVITY_TTL. Как только
+            // запросы прекращаются (закрытая вкладка, ушёл от компьютера),
+            // токен истекает и следующий запрос получит 401.
+            self::touchExpiry($db, $token, self::USER_INACTIVITY_TTL);
 
             $user['role'] = strtolower(trim($user['role'] ?? ''));
             self::setCurrentUser($user);

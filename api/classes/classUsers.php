@@ -83,7 +83,9 @@ class Users
         if ($user && $this->verifyPassword($this->password, $user)) {
             unset($user['password']);
             $user['role'] = strtolower(trim($user['role'] ?? ''));
-            $token = Auth::issueToken($this->db, 'user', $user['id']);
+            // Токен сотрудника живёт по скользящему окну бездействия (4 часа),
+            // а не 7 дней — resolve() продлевает его на каждый запрос.
+            $token = Auth::issueToken($this->db, 'user', $user['id'], Auth::USER_INACTIVITY_TTL);
             return ['status' => 200, 'user' => $user, 'token' => $token];
         }
 
