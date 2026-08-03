@@ -272,6 +272,12 @@ if (count($route) <= 3) {
             $inventory = new Inventory($_REQUEST);
             $arr_json = $inventory->verifyMethod($method, $route);
             break;
+        case 'dispo':
+            include(__DIR__ . '/classes/classDispo.php');
+
+            $dispo = new Dispo($_REQUEST);
+            $arr_json = $dispo->verifyMethod($method, $route);
+            break;
         default:
             http_response_code(404);
             $arr_json = ['status' => 404, 'error' => 'Маршрут не найден'];
@@ -298,6 +304,7 @@ if (in_array($method, ['POST', 'PUT', 'DELETE'], true) && is_array($arr_json)) {
             'fault_reports' => 'fault',
             'inspections' => 'inspection',
             'inventory' => 'inventory',
+            'dispo' => 'dispo_order',
         ];
         $routeKey = $route[0] ?? '';
         $sub = $route[1] ?? '';
