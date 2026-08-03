@@ -4,6 +4,10 @@ require_once __DIR__ . '/Auth.php';
 
 class Users
 {
+    // Разделы, доступ к которым выдаётся явным грантом (user_module_access).
+    // Konto (профиль) сюда не входит — доступен всем всегда.
+    const MODULES = ['fahrzeuge', 'betrieb', 'aufgaben', 'lager', 'dispo'];
+
     private $id;
     private $username;
     private $password;
@@ -12,6 +16,9 @@ class Users
     private $role;
     private $department_id;
     private $vacation_days_per_year = 28;
+    // null = в запросе не передавали (не трогаем текущие гранты);
+    // array = полный новый набор модулей (в т.ч. пустой массив — снять все гранты).
+    private $modules = null;
     private $db;
 
     function __construct($id = null, $username = '', $password = '', $name = '', $lastname = '', $role = '', $department_id = null)
@@ -83,6 +90,9 @@ class Users
         if ($user && $this->verifyPassword($this->password, $user)) {
             unset($user['password']);
             $user['role'] = strtolower(trim($user['role'] ?? ''));
+            // modules определяет видимость разделов на фронте (навбар/маршруты) —
+            // см. user_module_access / src/utils/roles.ts::hasModule().
+            $user['modules'] = $this->getUserModules($user['id']);
             // Токен сотрудника живёт по скользящему окну бездействия (4 часа),
             // а не 7 дней — resolve() продлевает его на каждый запрос.
             $token = Auth::issueToken($this->db, 'user', $user['id'], Auth::USER_INACTIVITY_TTL);
@@ -166,7 +176,8 @@ class Users
             return ['status' => 403, 'error' => 'Доступ запрещён'];
         }
 
-        if ($this->isAdmin()) {
+        $isAdmin = $this->isAdmin();
+        if ($isAdmin) {
             $sql = 'SELECT id, username, name, lastname, role, department_id, vacation_days_per_year FROM users';
         } else {
             $sql = 'SELECT id, name, lastname, role, department_id FROM users';
@@ -174,8 +185,21 @@ class Users
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // modules нужны только админу — для чек-боксов в /departments.
+        $moduleMap = [];
+        if ($isAdmin) {
+            $modStmt = $this->db->query('SELECT user_id, module FROM user_module_access');
+            foreach ($modStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $moduleMap[$row['user_id']][] = $row['module'];
+            }
+        }
+
         foreach ($users as &$u) {
             $u['role'] = strtolower(trim($u['role'] ?? ''));
+            if ($isAdmin) {
+                $u['modules'] = $moduleMap[$u['id']] ?? [];
+            }
         }
         return ['status' => 200, 'data' => $users];
     }
@@ -220,6 +244,9 @@ class Users
 
         if ($ok) {
             $id = $this->db->lastInsertId();
+            if (is_array($this->modules)) {
+                $this->syncModules($id, $this->modules);
+            }
             return [
                 'status' => 201,
                 'message' => 'Пользователь зарегистрирован',
@@ -230,7 +257,8 @@ class Users
                     'lastname' => $this->lastname,
                     'role' => $this->role,
                     'department_id' => $this->department_id,
-                    'vacation_days_per_year' => (int) $this->vacation_days_per_year
+                    'vacation_days_per_year' => (int) $this->vacation_days_per_year,
+                    'modules' => is_array($this->modules) ? $this->getUserModules($id) : []
                 ]
             ];
         }
@@ -305,6 +333,11 @@ class Users
         }
 
         if ($ok) {
+            // Гранты меняет только admin; self-edit (/profile) их не трогает,
+            // даже если modules случайно попали в тело запроса.
+            if ($isAdmin && is_array($this->modules)) {
+                $this->syncModules($this->id, $this->modules);
+            }
             return ['status' => 200];
         }
         return ['status' => 400];
@@ -368,5 +401,45 @@ class Users
         if (isset($data['vacation_days_per_year']) && $data['vacation_days_per_year'] !== '') {
             $this->vacation_days_per_year = max(0, (int) $data['vacation_days_per_year']);
         }
+        if (array_key_exists('modules', $data)) {
+            $this->modules = is_array($data['modules']) ? array_values($data['modules']) : [];
+        }
+    }
+
+    /**
+     * Полностью заменяет гранты пользователя переданным набором модулей
+     * (неизвестные значения отбрасываются). Транзакционно: delete+insert.
+     */
+    private function syncModules($userId, array $modules)
+    {
+        $valid = array_values(array_intersect($modules, self::MODULES));
+
+        $this->db->beginTransaction();
+        try {
+            $del = $this->db->prepare('DELETE FROM user_module_access WHERE user_id = :id');
+            $del->bindValue(':id', $userId);
+            $del->execute();
+
+            if ($valid) {
+                $ins = $this->db->prepare('INSERT INTO user_module_access (user_id, module) VALUES (:id, :module)');
+                foreach ($valid as $module) {
+                    $ins->bindValue(':id', $userId);
+                    $ins->bindValue(':module', $module);
+                    $ins->execute();
+                }
+            }
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+    }
+
+    private function getUserModules($userId)
+    {
+        $stmt = $this->db->prepare('SELECT module FROM user_module_access WHERE user_id = :id');
+        $stmt->bindValue(':id', $userId);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 }

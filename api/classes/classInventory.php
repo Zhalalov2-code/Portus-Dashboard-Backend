@@ -123,34 +123,15 @@ class Inventory
     // --------------------------- Права доступа ---------------------------
 
     /**
-     * Доступ к складу: admin ИЛИ департамент содержит "leitend" ИЛИ
-     * ("tech" И "kontroll"), ИЛИ роль "pruefer" (запасной вариант).
-     * Зеркалит src/utils/roles.ts на фронтенде.
+     * Доступ к складу: явный грант "lager" в user_module_access (admin
+     * проходит всегда). Зеркалит src/utils/roles.ts::hasModule() на фронтенде.
      */
     private function canUseWarehouse($user)
     {
         if (!$user) {
             return false;
         }
-        $role = strtolower(trim($user['role'] ?? ''));
-        if ($role === 'admin' || $role === 'pruefer' || $role === 'department_head') {
-            return true;
-        }
-        if (empty($user['department_id'])) {
-            return false;
-        }
-        $stmt = $this->db->prepare('SELECT name FROM departments WHERE id = :id LIMIT 1');
-        $stmt->bindValue(':id', $user['department_id']);
-        $stmt->execute();
-        $dept = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$dept) {
-            return false;
-        }
-        $name = strtolower(trim($dept['name']));
-        if (strpos($name, 'leitend') !== false) {
-            return true;
-        }
-        return strpos($name, 'tech') !== false && strpos($name, 'kontroll') !== false;
+        return Auth::hasModule($this->db, 'lager');
     }
 
     /**

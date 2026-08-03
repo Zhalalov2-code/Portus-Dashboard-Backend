@@ -86,29 +86,16 @@ class Dispo
 
     // --------------------------- Права доступа ---------------------------
 
+    /**
+     * Доступ к Dispo: явный грант "dispo" в user_module_access (admin
+     * проходит всегда). Зеркалит src/utils/roles.ts::hasModule() на фронтенде.
+     */
     private function canUseDispo($user)
     {
         if (!$user) {
             return false;
         }
-        $role = strtolower(trim($user['role'] ?? ''));
-        if ($role === 'admin') {
-            return true;
-        }
-        if ($role === 'departmnt_head') {
-            return true;
-        }
-        if (empty($user['department_id'])) {
-            return false;
-        }
-        $stmt = $this->db->prepare('SELECT name FROM departments WHERE id = :id LIMIT 1');
-        $stmt->bindValue(':id', $user['department_id']);
-        $stmt->execute();
-        $dept = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$dept) {
-            return false;
-        }
-        return strpos(strtolower(trim($dept['name'])), 'dispo') !== false;
+        return Auth::hasModule($this->db, 'dispo');
     }
 
     private function requireAccess()
@@ -142,6 +129,12 @@ class Dispo
             }
             $where[] = 'status = :status';
             $params[':status'] = $status;
+        }
+
+        $kunde = $this->input('kunde');
+        if ($kunde !== null) {
+            $where[] = 'kunde = :kunde';
+            $params[':kunde'] = $kunde;
         }
 
         $dienstleistung = $this->input('dienstleistung');

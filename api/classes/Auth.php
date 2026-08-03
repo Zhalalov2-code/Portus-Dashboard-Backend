@@ -44,6 +44,28 @@ class Auth
         return self::$currentUser;
     }
 
+    /**
+     * Явный грант доступа к разделу (fahrzeuge/betrieb/aufgaben/lager/dispo),
+     * см. таблицу user_module_access. admin проходит всегда, независимо от
+     * грантов; Prüfer здесь не выделен отдельно — его жёсткое ограничение
+     * живёт во фронтовом ProtectedRoute и не зависит от этой проверки.
+     */
+    public static function hasModule(PDO $db, $module)
+    {
+        $user = self::currentUser();
+        if (!$user) {
+            return false;
+        }
+        if (strtolower(trim($user['role'] ?? '')) === 'admin') {
+            return true;
+        }
+        $stmt = $db->prepare('SELECT 1 FROM user_module_access WHERE user_id = :uid AND module = :module LIMIT 1');
+        $stmt->bindValue(':uid', $user['id']);
+        $stmt->bindValue(':module', $module);
+        $stmt->execute();
+        return (bool) $stmt->fetchColumn();
+    }
+
     public static function setCurrentFahrer($fahrer)
     {
         self::$currentFahrer = $fahrer;
