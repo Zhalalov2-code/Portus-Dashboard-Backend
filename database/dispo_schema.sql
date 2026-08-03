@@ -17,7 +17,7 @@
 
 CREATE TABLE IF NOT EXISTS dispo_orders (
     id                INT AUTO_INCREMENT PRIMARY KEY,
-    status            ENUM('in_bearbeitung','abgerechnet','storno') NOT NULL DEFAULT 'in_bearbeitung',
+    status            ENUM('in_bearbeitung','erledigt','teil_erledigt','abgerechnet','teil_abgerechnet','storno') NOT NULL DEFAULT 'in_bearbeitung',
     von               DATE           NULL,
     bis               DATE           NULL,
     kunde             VARCHAR(255)   NOT NULL,

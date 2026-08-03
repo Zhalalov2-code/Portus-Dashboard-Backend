@@ -15,7 +15,7 @@ require_once __DIR__ . '/Auth.php';
  */
 class Dispo
 {
-    const STATUSES = ['in_bearbeitung', 'abgerechnet', 'storno'];
+    const STATUSES = ['in_bearbeitung', 'erledigt', 'teil_erledigt', 'abgerechnet', 'teil_abgerechnet', 'storno'];
 
     private $db;
     private $data;
@@ -146,7 +146,9 @@ class Dispo
 
         $dienstleistung = $this->input('dienstleistung');
         if ($dienstleistung !== null) {
-            $where[] = 'dienstleistung = :dienstleistung';
+            // dienstleistung speichert mehrere Werte kommagetrennt (z.B. "ALL IN,Zoll") —
+            // FIND_IN_SET matcht genau ein Element der Liste, kein Substring-Treffer.
+            $where[] = 'FIND_IN_SET(:dienstleistung, dienstleistung) > 0';
             $params[':dienstleistung'] = $dienstleistung;
         }
 
