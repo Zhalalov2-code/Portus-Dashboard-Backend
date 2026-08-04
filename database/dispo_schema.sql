@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS dispo_orders (
     cont_nummer       VARCHAR(100)   NULL,
     ware              VARCHAR(255)   NULL,
     anzahl            DECIMAL(12,3)  NOT NULL DEFAULT 0,
+    pack_anzahl       INT            NULL,
+    gewicht           DECIMAL(10,2)  NULL,
     preis             DECIMAL(12,2)  NOT NULL DEFAULT 0,
     gesamt            DECIMAL(14,2)  GENERATED ALWAYS AS (anzahl * preis) STORED,
     eingang_rechnung  DATE           NULL,

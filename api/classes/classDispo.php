@@ -232,13 +232,22 @@ class Dispo
 
         $userId = Auth::currentUser()['id'] ?? null;
 
+        $packAnzahl = $this->input('pack_anzahl');
+        if ($packAnzahl !== null && !is_numeric($packAnzahl)) {
+            return ['status' => 400, 'error' => 'Pack-Anzahl muss eine Zahl sein'];
+        }
+        $gewicht = $this->input('gewicht');
+        if ($gewicht !== null && !is_numeric($gewicht)) {
+            return ['status' => 400, 'error' => 'Gewicht muss eine Zahl sein'];
+        }
+
         $stmt = $this->db->prepare(
             'INSERT INTO dispo_orders
                 (status, von, bis, kunde, dienstleistung, auftrag, pos_nr, cont_nummer, ware,
-                 anzahl, preis, eingang_rechnung, bemerkungen, highlighted, created_by, updated_by)
+                 anzahl, pack_anzahl, gewicht, preis, eingang_rechnung, bemerkungen, highlighted, created_by, updated_by)
              VALUES
                 (:status, :von, :bis, :kunde, :dienstleistung, :auftrag, :pos_nr, :cont_nummer, :ware,
-                 :anzahl, :preis, :eingang_rechnung, :bemerkungen, :highlighted, :created_by, :updated_by)'
+                 :anzahl, :pack_anzahl, :gewicht, :preis, :eingang_rechnung, :bemerkungen, :highlighted, :created_by, :updated_by)'
         );
         $stmt->bindValue(':status', $status);
         $stmt->bindValue(':von', $this->input('von'));
@@ -250,6 +259,8 @@ class Dispo
         $stmt->bindValue(':cont_nummer', $this->input('cont_nummer'));
         $stmt->bindValue(':ware', $this->input('ware'));
         $stmt->bindValue(':anzahl', (float) $anzahl);
+        $stmt->bindValue(':pack_anzahl', $packAnzahl !== null ? (int) $packAnzahl : null);
+        $stmt->bindValue(':gewicht', $gewicht !== null ? (float) $gewicht : null);
         $stmt->bindValue(':preis', (float) $preis);
         $stmt->bindValue(':eingang_rechnung', $this->input('eingang_rechnung'));
         $stmt->bindValue(':bemerkungen', $this->input('bemerkungen'));
@@ -305,13 +316,27 @@ class Dispo
             return array_key_exists($key, $this->data) ? $this->input($key) : $order[$key];
         };
 
+        $packAnzahl = $this->input('pack_anzahl');
+        if ($packAnzahl === null) {
+            $packAnzahl = $order['pack_anzahl'];
+        } elseif (!is_numeric($packAnzahl)) {
+            return ['status' => 400, 'error' => 'Pack-Anzahl muss eine Zahl sein'];
+        }
+        $gewicht = $this->input('gewicht');
+        if ($gewicht === null) {
+            $gewicht = $order['gewicht'];
+        } elseif (!is_numeric($gewicht)) {
+            return ['status' => 400, 'error' => 'Gewicht muss eine Zahl sein'];
+        }
+
         $userId = Auth::currentUser()['id'] ?? null;
 
         $stmt = $this->db->prepare(
             'UPDATE dispo_orders SET
                 status = :status, von = :von, bis = :bis, kunde = :kunde,
                 dienstleistung = :dienstleistung, auftrag = :auftrag, pos_nr = :pos_nr,
-                cont_nummer = :cont_nummer, ware = :ware, anzahl = :anzahl, preis = :preis,
+                cont_nummer = :cont_nummer, ware = :ware, anzahl = :anzahl, pack_anzahl = :pack_anzahl,
+                gewicht = :gewicht, preis = :preis,
                 eingang_rechnung = :eingang_rechnung, bemerkungen = :bemerkungen,
                 highlighted = :highlighted, updated_by = :updated_by
              WHERE id = :id'
@@ -326,6 +351,8 @@ class Dispo
         $stmt->bindValue(':cont_nummer', $field('cont_nummer'));
         $stmt->bindValue(':ware', $field('ware'));
         $stmt->bindValue(':anzahl', (float) $anzahl);
+        $stmt->bindValue(':pack_anzahl', $packAnzahl !== null ? (int) $packAnzahl : null);
+        $stmt->bindValue(':gewicht', $gewicht !== null ? (float) $gewicht : null);
         $stmt->bindValue(':preis', (float) $preis);
         $stmt->bindValue(':eingang_rechnung', $field('eingang_rechnung'));
         $stmt->bindValue(':bemerkungen', $field('bemerkungen'));
@@ -384,6 +411,8 @@ class Dispo
             'cont_nummer' => $row['cont_nummer'],
             'ware' => $row['ware'],
             'anzahl' => (float) $row['anzahl'],
+            'pack_anzahl' => $row['pack_anzahl'] !== null ? (int) $row['pack_anzahl'] : null,
+            'gewicht' => $row['gewicht'] !== null ? (float) $row['gewicht'] : null,
             'preis' => (float) $row['preis'],
             'gesamt' => $row['gesamt'] !== null ? (float) $row['gesamt'] : null,
             'eingang_rechnung' => $row['eingang_rechnung'],
