@@ -32,9 +32,14 @@ if (!function_exists('portus_load_env_file')) {
             // .env-файлом: если переменная уже задана в окружении — не перезаписываем
             // её значением из файла. Иначе устаревшая строка в .env могла бы
             // перекрыть корректную переменную окружения (например ALLOWED_ORIGIN).
-            if ($key !== '' && getenv($key) === false) {
-                putenv($key . '=' . $value);
-                $_ENV[$key] = $value;
+            if ($key !== '') {
+                $existingEnv = getenv($key);
+                $finalValue = $existingEnv !== false ? $existingEnv : $value;
+                
+                $_ENV[$key] = $finalValue;
+                if ($existingEnv === false) {
+                    putenv($key . '=' . $value);
+                }
             }
         }
     }

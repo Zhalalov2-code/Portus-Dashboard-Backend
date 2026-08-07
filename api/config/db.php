@@ -11,10 +11,10 @@ class DB{
 
     public static function getInstance(){
         if (!isset(self::$instance)){
-            $host = getenv('DB_HOST') ?: 'localhost';
-            $name = getenv('DB_NAME') ?: 'portusapp1';
-            $user = getenv('DB_USER');
-            $pass = getenv('DB_PASS');
+            $host = $_ENV['DB_HOST'] ?? getenv('DB_HOST') ?: 'localhost';
+            $name = $_ENV['DB_NAME'] ?? getenv('DB_NAME') ?: 'portusapp1';
+            $user = $_ENV['DB_USER'] ?? getenv('DB_USER');
+            $pass = $_ENV['DB_PASS'] ?? getenv('DB_PASS');
 
             if ($user === false || $pass === false) {
                 throw new \RuntimeException('DB_USER и DB_PASS обязательны — создайте файл .env на основе .env.example');

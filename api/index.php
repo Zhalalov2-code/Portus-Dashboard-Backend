@@ -6,8 +6,15 @@ require_once __DIR__ . '/classes/Auth.php';
 // --- CORS ---
 // В проде ALLOWED_ORIGIN должен быть точным адресом фронтенда, а не "*",
 // иначе API открыт для запросов с любого сайта.
-$allowedOrigin = getenv('ALLOWED_ORIGIN') ?: 'https://portus-management.netlify.app';
+$allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://portus-management.netlify.app',
+];
+$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+$allowedOrigin = in_array($origin, $allowedOrigins, true) ? $origin : $allowedOrigins[2];
 header('Access-Control-Allow-Origin: ' . $allowedOrigin);
+header('Access-Control-Allow-Credentials: true');
 header('Vary: Origin');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -35,7 +42,7 @@ $route = explode("?", $route)[0];
 $route = str_replace('/portusApp1', '', $route);
 $route = ltrim($route, '/');
 $route = explode("/", $route);
-$route = array_values(array_filter($route));
+$route = array_values(array_filter($route, function($value) { return $value !== ''; }));
 
 // --- Авторизация ---
 // Публичные маршруты — единственные, доступные без токена:
@@ -278,6 +285,18 @@ if (count($route) <= 3) {
             $dispo = new Dispo($_REQUEST);
             $arr_json = $dispo->verifyMethod($method, $route);
             break;
+        case 'kunden':
+            include(__DIR__ . '/classes/classKunde.php');
+
+            $kunden = new Kunde();
+            $arr_json = $kunden->verifyMethod($method, $route);
+            break;
+        case 'dienstleistung':
+            include(__DIR__ . '/classes/classDienstleistung.php');
+
+            $dienstleistung = new Dienstleistung();
+            $arr_json = $dienstleistung->verifyMethod($method, $route);
+            break;
         default:
             http_response_code(404);
             $arr_json = ['status' => 404, 'error' => 'Маршрут не найден'];
@@ -305,6 +324,8 @@ if (in_array($method, ['POST', 'PUT', 'DELETE'], true) && is_array($arr_json)) {
             'inspections' => 'inspection',
             'inventory' => 'inventory',
             'dispo' => 'dispo_order',
+            'kunden' => 'kunde',
+            'dienstleistung' => 'dienstleistung',
         ];
         $routeKey = $route[0] ?? '';
         $sub = $route[1] ?? '';

@@ -95,11 +95,24 @@ class Chassi
         foreach ($params as $k => $v) $stmt->bindValue($k, $v);
         $stmt->execute();
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        // Булевы поля приводим к int, чтобы фронт получал 0/1, а не "0"/"1".
+
+        // Fetch drivers to map them to chassis in PHP (avoids collation mismatch errors)
+        $stmt2 = $this->db->query("SELECT id_fahrer, name, lastname, chassi FROM fahrer WHERE chassi IS NOT NULL AND chassi != ''");
+        $drivers = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+        $driverMap = [];
+        foreach ($drivers as $d) {
+            $driverMap[$d['chassi']] = $d;
+        }
+
         foreach ($result as &$row) {
             $row['adr'] = (int) ($row['adr'] ?? 0);
             $row['a_schild'] = (int) ($row['a_schild'] ?? 0);
             $row['service'] = (int) ($row['service'] ?? 0);
+
+            $assigned = $driverMap[$row['chassi_nummer']] ?? null;
+            $row['assigned_driver_id'] = $assigned ? $assigned['id_fahrer'] : null;
+            $row['assigned_driver_name'] = $assigned ? $assigned['name'] : null;
+            $row['assigned_driver_lastname'] = $assigned ? $assigned['lastname'] : null;
         }
         return $result;
     }

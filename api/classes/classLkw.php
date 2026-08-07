@@ -98,12 +98,26 @@ class Lkw
         foreach ($params as $k => $v) $stmt->bindValue($k, $v);
         $stmt->execute();
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fetch drivers to map them to LKWs in PHP (avoids collation mismatch errors)
+        $stmt2 = $this->db->query("SELECT id_fahrer, name, lastname, lkw FROM fahrer WHERE lkw IS NOT NULL AND lkw != ''");
+        $drivers = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+        $driverMap = [];
+        foreach ($drivers as $d) {
+            $driverMap[$d['lkw']] = $d;
+        }
+
         // Булевы поля приводим к int, чтобы фронт получал 0/1, а не "0"/"1".
         foreach ($result as &$row) {
             $row['adr'] = (int) ($row['adr'] ?? 0);
             $row['a_schild'] = (int) ($row['a_schild'] ?? 0);
             $row['feuerloescher'] = (int) ($row['feuerloescher'] ?? 0);
             $row['service'] = (int) ($row['service'] ?? 0);
+
+            $assigned = $driverMap[$row['lkw_nummer']] ?? null;
+            $row['assigned_driver_id'] = $assigned ? $assigned['id_fahrer'] : null;
+            $row['assigned_driver_name'] = $assigned ? $assigned['name'] : null;
+            $row['assigned_driver_lastname'] = $assigned ? $assigned['lastname'] : null;
         }
         return $result;
     }

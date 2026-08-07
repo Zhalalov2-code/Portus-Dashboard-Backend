@@ -1,0 +1,6 @@
+{
+    "latestVersion": "1.0.1",
+    "apkUrl": "https://portusappapi.portus-logistics.de/downloads/DriverPortal.apk",
+    "forceUpdate": false,
+    "releaseNotes": "Добавлена новая система обновлений.\nИсправлены баги и улучшена производительность."
+}
