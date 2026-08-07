@@ -15,7 +15,7 @@ require_once __DIR__ . '/Auth.php';
  */
 class Dispo
 {
-    const STATUSES = ['in_bearbeitung', 'erledigt', 'teil_erledigt', 'abgerechnet', 'teil_abgerechnet', 'storno'];
+    const STATUSES = ['in_bearbeitung', 'ausgedruckt', 'erledigt', 'teil_erledigt', 'abgerechnet', 'teil_abgerechnet', 'storno'];
 
     private $db;
     private $data;
@@ -233,8 +233,9 @@ class Dispo
         $userId = Auth::currentUser()['id'] ?? null;
 
         $packAnzahl = $this->input('pack_anzahl');
-        if ($packAnzahl !== null && !is_numeric($packAnzahl)) {
-            return ['status' => 400, 'error' => 'Pack-Anzahl muss eine Zahl sein'];
+        $packAnzahl = $packAnzahl !== null ? trim((string) $packAnzahl) : null;
+        if ($packAnzahl === '') {
+            $packAnzahl = null;
         }
         $gewicht = $this->input('gewicht');
         if ($gewicht !== null && !is_numeric($gewicht)) {
@@ -259,7 +260,7 @@ class Dispo
         $stmt->bindValue(':cont_nummer', $this->input('cont_nummer'));
         $stmt->bindValue(':ware', $this->input('ware'));
         $stmt->bindValue(':anzahl', (float) $anzahl);
-        $stmt->bindValue(':pack_anzahl', $packAnzahl !== null ? (int) $packAnzahl : null);
+        $stmt->bindValue(':pack_anzahl', $packAnzahl);
         $stmt->bindValue(':gewicht', $gewicht !== null ? (float) $gewicht : null);
         $stmt->bindValue(':preis', (float) $preis);
         $stmt->bindValue(':eingang_rechnung', $this->input('eingang_rechnung'));
@@ -319,8 +320,11 @@ class Dispo
         $packAnzahl = $this->input('pack_anzahl');
         if ($packAnzahl === null) {
             $packAnzahl = $order['pack_anzahl'];
-        } elseif (!is_numeric($packAnzahl)) {
-            return ['status' => 400, 'error' => 'Pack-Anzahl muss eine Zahl sein'];
+        } else {
+            $packAnzahl = trim((string) $packAnzahl);
+            if ($packAnzahl === '') {
+                $packAnzahl = null;
+            }
         }
         $gewicht = $this->input('gewicht');
         if ($gewicht === null) {
@@ -351,7 +355,7 @@ class Dispo
         $stmt->bindValue(':cont_nummer', $field('cont_nummer'));
         $stmt->bindValue(':ware', $field('ware'));
         $stmt->bindValue(':anzahl', (float) $anzahl);
-        $stmt->bindValue(':pack_anzahl', $packAnzahl !== null ? (int) $packAnzahl : null);
+        $stmt->bindValue(':pack_anzahl', $packAnzahl);
         $stmt->bindValue(':gewicht', $gewicht !== null ? (float) $gewicht : null);
         $stmt->bindValue(':preis', (float) $preis);
         $stmt->bindValue(':eingang_rechnung', $field('eingang_rechnung'));
@@ -411,7 +415,7 @@ class Dispo
             'cont_nummer' => $row['cont_nummer'],
             'ware' => $row['ware'],
             'anzahl' => (float) $row['anzahl'],
-            'pack_anzahl' => $row['pack_anzahl'] !== null ? (int) $row['pack_anzahl'] : null,
+            'pack_anzahl' => $row['pack_anzahl'],
             'gewicht' => $row['gewicht'] !== null ? (float) $row['gewicht'] : null,
             'preis' => (float) $row['preis'],
             'gesamt' => $row['gesamt'] !== null ? (float) $row['gesamt'] : null,
